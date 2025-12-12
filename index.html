@@ -1,0 +1,1524 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CaruselForge</title>
+
+  <!-- CropperJS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+
+  <!-- JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b0e14;
+      --line:#1e2a40;
+      --text:#e8ecf6;
+      --muted:#a8b2c7;
+      --accent:#7dd3fc;
+      --accent2:#a78bfa;
+      --ok:#34d399;
+      --bad:#fb7185;
+      --warn:#fbbf24;
+      --shadow: 0 18px 54px rgba(0,0,0,.38);
+      --r:18px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color:var(--text);
+      background:
+        radial-gradient(900px 520px at 15% -10%, rgba(125,211,252,.14), transparent 60%),
+        radial-gradient(900px 520px at 95% 0%, rgba(167,139,250,.12), transparent 55%),
+        var(--bg);
+    }
+
+    header{
+      position:sticky; top:0; z-index:20;
+      padding:14px 14px 10px;
+      border-bottom:1px solid var(--line);
+      background: rgba(11,14,20,.78);
+      backdrop-filter: blur(10px);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+
+    .brand{display:flex; align-items:center; gap:10px; min-width:0;}
+    .logo{
+      width:36px;height:36px;border-radius:13px;
+      border:1px solid rgba(255,255,255,.09);
+      background: linear-gradient(135deg, rgba(125,211,252,.22), rgba(167,139,250,.18));
+      display:flex;align-items:center;justify-content:center;
+      box-shadow: 0 10px 28px rgba(0,0,0,.28);
+      flex:0 0 auto;
+    }
+    .titleWrap{min-width:0}
+    .title{
+      margin:0;
+      font-size:13px;
+      font-weight:820;
+      letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .subtitle{
+      margin:2px 0 0;
+      font-size:12px;
+      color:var(--muted);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    .topActions{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    input[type="file"]{display:none}
+
+    .btn{
+      height:40px;
+      padding:0 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+      color:var(--text);
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:8px;
+      cursor:pointer;
+      transition: transform .06s ease, border-color .15s ease, background .15s ease, opacity .15s ease;
+      user-select:none;
+      font-size:12.5px;
+      white-space:nowrap;
+    }
+    .btn:hover{border-color: rgba(125,211,252,.55); background: rgba(125,211,252,.06)}
+    .btn:active{transform: translateY(1px)}
+    .btn.primary{border-color: rgba(125,211,252,.65); background: rgba(125,211,252,.08)}
+    .btn.ok{border-color: rgba(52,211,153,.45)}
+    .btn.ok:hover{border-color: rgba(52,211,153,.75); background: rgba(52,211,153,.08)}
+    .btn.bad{border-color: rgba(251,113,133,.45)}
+    .btn.bad:hover{border-color: rgba(251,113,133,.75); background: rgba(251,113,133,.08)}
+    .btn:disabled{opacity:.45; pointer-events:none}
+
+    .fileBtn{
+      display:inline-flex; align-items:center; gap:8px;
+      height:40px;
+      padding:0 12px;
+      border-radius:12px;
+      border:1px dashed rgba(125,211,252,.55);
+      background: rgba(125,211,252,.07);
+      cursor:pointer;
+      font-size:12.5px;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .fileBtn:hover{background: rgba(125,211,252,.10)}
+
+    .select{
+      height:40px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+      padding:0 10px;
+      font-size:12.5px;
+      outline:none;
+      white-space:nowrap;
+    }
+    input[type="range"]{accent-color: var(--accent)}
+
+    main{
+      display:grid;
+      grid-template-columns: 360px 1fr 420px;
+      gap:14px;
+      padding:14px;
+      align-items:start;
+    }
+    @media (max-width: 1200px){ main{grid-template-columns:1fr} }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.012));
+      border:1px solid var(--line);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .cardTop{
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      padding:12px;
+      border-bottom:1px solid var(--line);
+      background: rgba(255,255,255,.02);
+    }
+    .cardTitle{display:flex; flex-direction:column; gap:2px; min-width:0;}
+    .cardTitle h2{
+      margin:0;
+      font-size:13px;
+      font-weight:850;
+      letter-spacing:.2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis
+    }
+    .cardTitle p{
+      margin:0;
+      font-size:12px;
+      color:var(--muted);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis
+    }
+    .cardBody{padding:12px}
+
+    .kpi{
+      display:flex; gap:8px; align-items:center;
+      padding:10px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      background: rgba(255,255,255,.02);
+      font-size:12.5px;
+      color:var(--muted);
+      flex-wrap:wrap;
+    }
+    .kpi strong{color:var(--text)}
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .label{font-size:12px;color:var(--muted);margin-right:6px}
+
+    /* Dropzone */
+    .dropzone{
+      border-radius: 16px;
+      border:1px dashed rgba(125,211,252,.35);
+      background: rgba(0,0,0,.12);
+      padding:12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .dropLeft{display:flex;gap:12px;align-items:center;min-width:0}
+    .spark{
+      width:44px;height:44px;border-radius:16px;
+      background: linear-gradient(135deg, rgba(125,211,252,.18), rgba(167,139,250,.14));
+      border:1px solid rgba(255,255,255,.10);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow: 0 16px 40px rgba(0,0,0,.30);
+      flex:0 0 auto;
+    }
+    .dropText{min-width:0}
+    .dropText .a{
+      font-weight:900;
+      font-size:13px;
+      letter-spacing:.2px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+    }
+    .dropText .b{
+      font-size:12.2px;
+      color:rgba(168,178,199,.95);
+      margin-top:2px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+    }
+    .dropzone.drag{
+      border-color: rgba(125,211,252,.65);
+      background: rgba(125,211,252,.06);
+    }
+
+    .empty{
+      border:1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      background: rgba(0,0,0,.10);
+      padding:12px;
+      color: rgba(168,178,199,.95);
+      font-size:12.6px;
+      line-height:1.35;
+      text-align:left;
+    }
+
+    /* Left list */
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      max-height: 64vh;
+      overflow:auto;
+      padding-right:4px;
+      margin-top: 4px;
+    }
+    .item{
+      display:grid;
+      grid-template-columns: 46px 1fr auto;
+      gap:10px;
+      align-items:center;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      border-radius:14px;
+      padding:8px;
+      cursor:pointer;
+    }
+    .item.active{outline:2px solid rgba(125,211,252,.45)}
+    .thumb{
+      width:46px;height:46px;border-radius:12px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.06);
+      background:#070a10;
+    }
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .meta{min-width:0}
+    .name{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.95}
+    .sub{font-size:11.6px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+    .sub.warn{color: rgba(251,191,36,.95)}
+    .iconMini{
+      width:36px;height:36px;border-radius:12px;
+      display:inline-flex;align-items:center;justify-content:center;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+      cursor:pointer;
+      font-size:14px;
+    }
+    .iconMini:hover{border-color: rgba(251,113,133,.75); background: rgba(251,113,133,.08)}
+
+    /* Editor */
+    .editorWrap{
+      border:1px solid var(--line);
+      border-radius: var(--r);
+      overflow:hidden;
+      background: #070a10;
+    }
+    .editorTop{
+      padding:12px;
+      border-bottom:1px solid var(--line);
+      background: rgba(255,255,255,.02);
+      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+    }
+    .toolGroup{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .editorCanvas{
+      padding:10px;
+      background:#000;
+      height: 640px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    @media (max-width:1200px){ .editorCanvas{height: 520px} }
+    #image{max-width:100%;max-height:100%;display:block;-webkit-user-drag:none;user-select:none}
+
+    /* Preview (IG-like) */
+    .feed{
+      border:1px solid var(--line);
+      border-radius: 22px;
+      overflow:hidden;
+      background: rgba(255,255,255,.02);
+    }
+    .feedHead, .feedFoot{
+      height:52px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      display:flex; align-items:center;
+      padding:0 12px;
+      gap:10px;
+    }
+    .feedFoot{border-top:1px solid rgba(255,255,255,.06); border-bottom:none}
+    .avatar{
+      width:28px;height:28px;border-radius:999px;
+      background: linear-gradient(135deg, rgba(125,211,252,.75), rgba(167,139,250,.72));
+    }
+    .lines{display:flex;flex-direction:column;gap:6px}
+    .line{height:7px;border-radius:999px;background: rgba(255,255,255,.12)}
+    .line.a{width:120px}
+    .line.b{width:78px;opacity:.75}
+
+    .media{
+      width:100%;
+      background:#000;
+      position:relative;
+      overflow:hidden;
+      height: 320px;
+    }
+    .media img{width:100%;height:100%;display:block;object-fit: cover}
+    .nav{
+      position:absolute; inset:0;
+      display:flex; justify-content:space-between; align-items:center;
+      pointer-events:none;
+      padding:0 10px;
+      z-index:5;
+    }
+    .nav button{
+      pointer-events:auto;
+      width:36px;height:36px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.35);
+      color:#fff;
+      cursor:pointer;
+      font-size:18px;
+      line-height:1;
+    }
+    .nav button:disabled{opacity:.35; cursor:default}
+    .dots{
+      position:absolute;
+      left:50%; bottom:10px;
+      transform:translateX(-50%);
+      display:flex; gap:6px;
+      padding:6px 8px;
+      border-radius:999px;
+      background: rgba(0,0,0,.35);
+      border:1px solid rgba(255,255,255,.10);
+      backdrop-filter: blur(6px);
+      z-index:6;
+    }
+    .dot{width:6px;height:6px;border-radius:999px;background: rgba(255,255,255,.35)}
+    .dot.active{background: rgba(125,211,252,.95)}
+
+    /* Storyboard strip */
+    .stripWrap{padding: 0 14px 14px}
+    .strip{
+      display:flex;
+      gap:10px;
+      overflow:auto;
+      padding:12px;
+      background: rgba(0,0,0,.12);
+      border-top:1px solid rgba(255,255,255,.06);
+    }
+    .frame{
+      position:relative;
+      flex:0 0 auto;
+      width: 140px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:#000;
+      overflow:hidden;
+      cursor:grab;
+      transition: transform .08s ease, border-color .15s ease, opacity .12s ease;
+    }
+    .frame:hover{border-color: rgba(125,211,252,.55)}
+    .frame:active{transform: translateY(1px); cursor:grabbing;}
+    .frame.active{outline:2px solid rgba(125,211,252,.55)}
+    .frameImg{width:100%;height:100%;object-fit:cover;display:block}
+    .badge{
+      position:absolute; top:8px; left:8px;
+      padding:4px 8px;
+      border-radius:999px;
+      background: rgba(0,0,0,.45);
+      border:1px solid rgba(255,255,255,.12);
+      font-size:11px;
+      color:#fff;
+      backdrop-filter: blur(6px);
+    }
+    .badge2{
+      position:absolute; bottom:8px; left:8px;
+      padding:4px 8px;
+      border-radius:999px;
+      background: rgba(0,0,0,.45);
+      border:1px solid rgba(255,255,255,.12);
+      font-size:11px;
+      color:#fff;
+      backdrop-filter: blur(6px);
+      opacity:.92;
+    }
+    .frame.dragging{opacity:.35}
+    .frame.over{outline:2px dashed rgba(125,211,252,.65); outline-offset:-6px}
+
+    /* Icons */
+    .i{width:16px;height:16px;display:inline-block}
+
+    /* Toasts */
+    .toasts{
+      position:fixed;
+      right:14px;
+      bottom:14px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      z-index:50;
+      pointer-events:none;
+    }
+    .toast{
+      pointer-events:none;
+      min-width: 240px;
+      max-width: 360px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(11,14,20,.86);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 50px rgba(0,0,0,.40);
+      padding:10px 12px;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      animation: pop .18s ease-out;
+    }
+    @keyframes pop{from{transform:translateY(6px);opacity:.0}to{transform:translateY(0);opacity:1}}
+    .tDot{
+      width:10px;height:10px;border-radius:999px;margin-top:3px;
+      background: rgba(125,211,252,.95);
+      box-shadow: 0 0 0 6px rgba(125,211,252,.12);
+      flex:0 0 auto;
+    }
+    .tDot.ok{background: rgba(52,211,153,.95); box-shadow:0 0 0 6px rgba(52,211,153,.14)}
+    .tDot.bad{background: rgba(251,113,133,.95); box-shadow:0 0 0 6px rgba(251,113,133,.12)}
+    .tDot.warn{background: rgba(251,191,36,.95); box-shadow:0 0 0 6px rgba(251,191,36,.14)}
+    .tTxt b{display:block;font-size:12.5px}
+    .tTxt span{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.25}
+
+    /* Modal */
+    .modalOverlay{
+      position:fixed; inset:0; z-index:60;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+    }
+    .modal{
+      width:min(520px, 100%);
+      border-radius: 18px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(11,14,20,.92);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 28px 80px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+    .modalTop{
+      padding:12px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .modalTop b{font-size:13px; letter-spacing:.2px}
+    .modalBody{padding:12px}
+    .modalBody p{
+      margin:0 0 10px;
+      color: rgba(168,178,199,.95);
+      font-size:12.6px;
+      line-height:1.4;
+      text-align:left;
+    }
+    .modalActions{
+      padding:12px;
+      border-top:1px solid rgba(255,255,255,.08);
+      display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M6 16.5c2.2 2.2 9.8 2.2 12 0" stroke="rgba(232,236,246,.9)" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M7 8.2c3-3 7-3 10 0" stroke="rgba(125,211,252,.9)" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M9 11.2c1.8-1.8 4.2-1.8 6 0" stroke="rgba(167,139,250,.9)" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="12" cy="15.6" r="1.2" fill="rgba(52,211,153,.9)"/>
+      </svg>
+    </div>
+    <div class="titleWrap">
+      <p class="title">Carrusel Insta - por Enrique Gil</p>
+      <p class="subtitle">Recorta carruseles perfectos para Instagram</p>
+    </div>
+  </div>
+
+  <div class="topActions">
+    <label class="fileBtn" title="Añadir imágenes">
+      <input id="files" type="file" accept="image/*" multiple>
+      <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Añadir fotos
+    </label>
+    <button class="btn bad" id="clearAll" title="Vaciar todo">
+      <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M6 7h12M10 7V5h4v2m-6 3v9m4-9v9m4-9v9M7 7l1 14h8l1-14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Vaciar
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT -->
+  <section class="card">
+    <div class="cardTop">
+      <div class="cardTitle">
+        <h2>Carrusel</h2>
+        <p>Selecciona, ordena y elimina</p>
+      </div>
+      <div class="row">
+        <button class="btn" id="moveUp" title="Mover arriba">
+          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M12 5l-6 6m6-6l6 6M12 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Subir
+        </button>
+        <button class="btn" id="moveDown" title="Mover abajo">
+          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M12 19l6-6m-6 6l-6-6M12 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Bajar
+        </button>
+      </div>
+    </div>
+
+    <div class="cardBody">
+      <div class="dropzone" id="dropzone">
+        <div class="dropLeft">
+          <div class="spark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3v10m0 0l4-4m-4 4l-4-4" stroke="rgba(232,236,246,.92)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M5 20h14" stroke="rgba(125,211,252,.9)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="dropText">
+            <div class="a">Arrastra fotos aquí</div>
+            <div class="b">o pulsa “Elegir fotos”</div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="openPicker" title="Elegir fotos">
+            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v12H4V7Z" stroke="currentColor" stroke-width="2"/><path d="M8 7V5h8v2" stroke="currentColor" stroke-width="2"/><path d="M8 13l2-2 3 3 3-3 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Elegir fotos
+          </button>
+        </div>
+      </div>
+
+      <div id="empty" class="empty" style="display:none">
+        Añade imágenes para empezar.
+      </div>
+
+      <div class="kpi" style="margin-top:12px">
+        <span>Fotos:</span> <strong id="count">0</strong>
+        <span style="opacity:.45">•</span>
+        <span>Seleccionada:</span> <strong id="selName">—</strong>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="list" id="list"></div>
+
+      <div style="height:10px"></div>
+      <div class="row">
+        <button class="btn" id="prev" title="Anterior (←)">
+          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Anterior
+        </button>
+        <button class="btn" id="next" title="Siguiente (→)">
+          Siguiente
+          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CENTER -->
+  <section class="card">
+    <div class="cardTop">
+      <div class="cardTitle">
+        <h2>Recorte</h2>
+        <p>Elige ratio y encuadra</p>
+      </div>
+      <div class="kpi">
+        <span>Ratio:</span> <strong id="ratioLabel">1:1</strong>
+        <span style="opacity:.45">•</span>
+        <span id="ratioMode" style="color:rgba(168,178,199,.95)">Libre</span>
+        <span style="opacity:.45">•</span>
+        <button class="btn" id="changeRatio" title="Cambiar ratio del carrusel (aplica a todas)">
+          <svg class="i" viewBox="0 0 24 24" fill="none">
+            <path d="M4 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M20 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M20 9a8 8 0 0 0-14.9-3M4 15a8 8 0 0 0 14.9 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Cambiar ratio…
+        </button>
+      </div>
+    </div>
+
+    <div class="editorWrap">
+      <div class="editorTop">
+        <div class="toolGroup">
+          <span class="label">Ratios</span>
+          <button class="btn" data-r="1">1:1</button>
+          <button class="btn" data-r="4/5">4:5</button>
+          <button class="btn" data-r="9/16">9:16</button>
+          <button class="btn" data-r="1.91">1.91:1</button>
+          <button class="btn" data-r="3/2">3:2</button>
+          <button class="btn" data-r="4/3">4:3</button>
+        </div>
+
+        <div class="toolGroup">
+          <span class="label">Ajustes</span>
+          <button class="btn" id="zoomIn">
+            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M11 8v6m-3-3h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/></svg>
+            Zoom +
+          </button>
+          <button class="btn" id="zoomOut">
+            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M8 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/></svg>
+            Zoom −
+          </button>
+          <button class="btn" id="rotL">⟲ Rotar</button>
+          <button class="btn" id="rotR">⟳ Rotar</button>
+          <button class="btn" id="reset">
+            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Reset
+          </button>
+          <button class="btn ok" id="saveCrop">
+            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V7l4-4h10l4 4v12a2 2 0 0 1-2 2Z" stroke="currentColor" stroke-width="2"/><path d="M7 21v-8h10v8" stroke="currentColor" stroke-width="2"/><path d="M8 3v4h8V3" stroke="currentColor" stroke-width="2"/></svg>
+            Guardar recorte
+          </button>
+        </div>
+      </div>
+
+      <div class="editorCanvas" id="editorCanvas">
+        <img id="image" alt="">
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT -->
+  <section class="card">
+    <div class="cardTop">
+      <div class="cardTitle">
+        <h2>Vista previa</h2>
+        <p>Simulación del encuadre actual</p>
+      </div>
+      <div class="row">
+        <button class="btn" id="dlOne" title="Descargar seleccionada">
+          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M12 3v10m0 0l4-4m-4 4l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Descargar
+        </button>
+        <button class="btn primary" id="dlZip" title="Descargar ZIP">
+          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M6 3h12v18H6z" stroke="currentColor" stroke-width="2"/><path d="M9 7h6M9 11h6M9 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          ZIP
+        </button>
+      </div>
+    </div>
+
+    <div class="cardBody">
+      <div class="feed">
+        <div class="feedHead">
+          <div class="avatar"></div>
+          <div class="lines"><div class="line a"></div><div class="line b"></div></div>
+        </div>
+
+        <div class="media" id="media">
+          <img id="preview" alt="">
+          <div class="nav">
+            <button id="pPrev" aria-label="prev">‹</button>
+            <button id="pNext" aria-label="next">›</button>
+          </div>
+          <div class="dots" id="dots"></div>
+        </div>
+
+        <div class="feedFoot">
+          <div class="line a" style="width:130px"></div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="kpi" style="justify-content:space-between; gap:12px; flex-wrap:wrap">
+        <div class="row" style="gap:8px">
+          <span class="label">Tamaño</span>
+          <select class="select" id="size">
+            <option value="1080" selected>1080px</option>
+            <option value="2160">2160px</option>
+          </select>
+        </div>
+
+        <div class="row" style="gap:8px">
+          <span class="label">Formato</span>
+          <select class="select" id="fmt">
+            <option value="jpeg" selected>JPG</option>
+            <option value="png">PNG</option>
+          </select>
+        </div>
+
+        <div class="row" style="gap:8px">
+          <span class="label">Calidad</span>
+          <input id="q" type="range" min="0.80" max="1.00" step="0.01" value="0.95">
+          <strong id="qVal" style="font-size:12px">0.95</strong>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="row">
+        <button class="btn" id="exportCrop" title="Exporta recortando al ratio elegido">
+          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M6 2v4H2v2h4v10a2 2 0 0 0 2 2h10v-2H8V8h10V6H8V2H6Z" fill="currentColor"/></svg>
+          Exportar (recorte IG)
+        </button>
+      </div>
+
+      <div style="margin-top:10px;font-size:12px;color:rgba(168,178,199,.95);line-height:1.4;text-align:left">
+        Tip: si no guardas recorte, el ZIP usa un recorte centrado automático al ratio.
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Storyboard -->
+<div class="stripWrap">
+  <section class="card">
+    <div class="cardTop">
+      <div class="cardTitle">
+        <h2>Storyboard</h2>
+        <p>Arrastra para reordenar • clic para seleccionar</p>
+      </div>
+      <div class="kpi">
+        <span>Salida:</span> <strong>01 → 02 → 03…</strong>
+      </div>
+    </div>
+    <div class="strip" id="strip"></div>
+  </section>
+</div>
+
+<!-- Toasts -->
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+<!-- Modal: Change ratio -->
+<div class="modalOverlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modalTop">
+      <b id="modalTitle">Cambiar ratio del carrusel</b>
+      <button class="btn bad" id="modalClose" title="Cerrar">Cerrar</button>
+    </div>
+    <div class="modalBody">
+      <p>
+        Instagram fuerza el carrusel a un único ratio. Si lo cambias aquí, se aplicará a todo el carrusel y
+        se limpiarán los recortes guardados para evitar formatos mezclados.
+      </p>
+      <div class="row" style="gap:10px">
+        <span class="label">Nuevo ratio</span>
+        <select class="select" id="modalRatio">
+          <option value="1:1">1:1</option>
+          <option value="4:5">4:5</option>
+          <option value="9:16">9:16</option>
+          <option value="1.91:1">1.91:1</option>
+          <option value="3:2">3:2</option>
+          <option value="4:3">4:3</option>
+        </select>
+      </div>
+    </div>
+    <div class="modalActions">
+      <button class="btn" id="modalCancel">Cancelar</button>
+      <button class="btn primary" id="modalApply">Aplicar a todo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  const files = $('files');
+  const list = $('list');
+  const strip = $('strip');
+  const img = $('image');
+  const editorCanvas = $('editorCanvas');
+
+  const preview = $('preview');
+  const media = $('media');
+  const dots = $('dots');
+
+  const prevBtn = $('prev');
+  const nextBtn = $('next');
+  const pPrev = $('pPrev');
+  const pNext = $('pNext');
+
+  const clearAll = $('clearAll');
+  const moveUp = $('moveUp');
+  const moveDown = $('moveDown');
+
+  const zoomIn = $('zoomIn');
+  const zoomOut = $('zoomOut');
+  const rotL = $('rotL');
+  const rotR = $('rotR');
+  const reset = $('reset');
+  const saveCrop = $('saveCrop');
+
+  const sizeEl = $('size');
+  const fmt = $('fmt');
+  const q = $('q');
+  const qVal = $('qVal');
+
+  const dlOne = $('dlOne');
+  const dlZip = $('dlZip');
+  const exportCropBtn = $('exportCrop');
+
+  const countEl = $('count');
+  const selNameEl = $('selName');
+  const ratioLabel = $('ratioLabel');
+  const ratioMode = $('ratioMode');
+
+  const dropzone = $('dropzone');
+  const openPicker = $('openPicker');
+  const toasts = $('toasts');
+  const empty = $('empty');
+
+  // Modal
+  const changeRatioBtn = $('changeRatio');
+  const modalOverlay = $('modalOverlay');
+  const modalClose = $('modalClose');
+  const modalCancel = $('modalCancel');
+  const modalApply = $('modalApply');
+  const modalRatio = $('modalRatio');
+
+  const RATIOS = [
+    { key:'1:1', value:1,      out:(s)=>({w:s,h:s}) },
+    { key:'4:5', value:4/5,    out:(s)=>({w:s,h: Math.round(s*5/4)}) },
+    { key:'9:16', value:9/16,  out:(s)=>({w:s,h: Math.round(s*16/9)}) },
+    { key:'1.91:1', value:1.91,out:(s)=>({w:s,h: Math.round(s/1.91)}) },
+    { key:'3:2', value:3/2,    out:(s)=>({w:s,h: Math.round(s*2/3)}) },
+    { key:'4:3', value:4/3,    out:(s)=>({w:s,h: Math.round(s*3/4)}) },
+  ];
+  const keyFromValue = (v) => RATIOS.map(r=>({k:r.key,d:Math.abs(r.value-v)})).sort((a,b)=>a.d-b.d)[0]?.k || '1:1';
+  const valueFromKey = (k) => RATIOS.find(r=>r.key===k)?.value ?? 1;
+  const outDims = (k, base) => (RATIOS.find(r=>r.key===k)?.out ?? ((s)=>({w:s,h:s})))(base);
+
+  let items = []; // {name,url, ratioKey, cropData, thumbDataUrl}
+  let selected = -1;
+  let cropper = null;
+  let currentRatio = 1;
+  let dragFrom = null;
+  let busyZip = false;
+
+  // Ratio global del carrusel (cuando se fija, se bloquean ratios por foto)
+  let carouselRatioKey = null;
+
+  // Bloquear rueda/trackpad en editor
+  editorCanvas.addEventListener('wheel', (e) => e.preventDefault(), { passive:false });
+
+  const pad2 = (n)=> String(n).padStart(2,'0');
+
+  function toast(type, title, msg){
+    const el = document.createElement('div');
+    el.className = 'toast';
+    const dot = document.createElement('div');
+    dot.className = 'tDot ' + (type || '');
+    const txt = document.createElement('div');
+    txt.className = 'tTxt';
+    const b = document.createElement('b');
+    b.textContent = title || 'Listo';
+    const s = document.createElement('span');
+    s.textContent = msg || '';
+    txt.appendChild(b); txt.appendChild(s);
+    el.appendChild(dot); el.appendChild(txt);
+    toasts.appendChild(el);
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(6px)'; }, 2400);
+    setTimeout(()=>{ el.remove(); }, 2800);
+  }
+
+  function destroyCropper(){
+    if(cropper){ cropper.destroy(); cropper=null; }
+  }
+
+  async function getMeta(url){
+    return new Promise((resolve, reject)=>{
+      const im = new Image();
+      im.onload = ()=> resolve({w:im.naturalWidth,h:im.naturalHeight});
+      im.onerror = reject;
+      im.src = url;
+    });
+  }
+
+  function toggleEmpty(){
+    empty.style.display = (items.length===0) ? 'block' : 'none';
+  }
+
+  function updateRatioModeUI(){
+    ratioMode.textContent = carouselRatioKey ? `Carrusel (bloqueado)` : `Libre`;
+    changeRatioBtn.disabled = items.length===0;
+  }
+
+  function lockCarouselRatioIfNeeded(ratioKey){
+    if(!carouselRatioKey){
+      carouselRatioKey = ratioKey;
+      updateRatioModeUI();
+      toast('ok','Ratio del carrusel fijado', `${carouselRatioKey} para todas las imágenes.`);
+    }
+  }
+
+  function applyCarouselRatio(ratioKey){
+    carouselRatioKey = ratioKey;
+    currentRatio = valueFromKey(carouselRatioKey);
+
+    // Limpia recortes para evitar mezclas
+    items.forEach(it => {
+      it.ratioKey = null;
+      it.cropData = null;
+      it.thumbDataUrl = null;
+    });
+
+    updateRatioModeUI();
+    renderAll();
+
+    if(selected>=0){
+      // Reabrir cropper con ratio nuevo
+      select(selected);
+      toast('ok', 'Ratio aplicado', `Todo el carrusel ahora está en ${carouselRatioKey}.`);
+    } else {
+      toast('ok', 'Ratio aplicado', `Carrusel en ${carouselRatioKey}.`);
+    }
+  }
+
+  function openModal(){
+    modalOverlay.style.display = 'flex';
+    modalRatio.value = carouselRatioKey || keyFromValue(currentRatio);
+  }
+  function closeModal(){
+    modalOverlay.style.display = 'none';
+  }
+
+  async function addFiles(fileList){
+    const fs = Array.from(fileList).filter(f=>f.type.startsWith('image/'));
+    if(!fs.length) return;
+
+    for(const f of fs){
+      const url = URL.createObjectURL(f);
+      await getMeta(url).catch(()=>({w:0,h:0}));
+      items.push({ name: f.name || '', url, ratioKey: null, cropData: null, thumbDataUrl: null });
+    }
+
+    if(selected===-1) selected = 0;
+
+    renderAll();
+    select(selected);
+    updatePreview();
+    toggleEmpty();
+
+    toast('ok', 'Fotos añadidas', `${fs.length} archivo(s) listos para recortar.`);
+  }
+
+  function updateHeader(){
+    countEl.textContent = String(items.length);
+    const it = items[selected];
+    selNameEl.textContent = it ? (it.name || `IMG_${pad2(selected+1)}`) : '—';
+  }
+
+  function setDisabled(){
+    const has = items.length>0;
+    const sel = selected>=0 && selected<items.length;
+
+    [prevBtn,nextBtn,pPrev,pNext].forEach(b=> b.disabled = (items.length<=1));
+    moveUp.disabled = !sel || selected===0;
+    moveDown.disabled = !sel || selected===items.length-1;
+
+    dlZip.disabled = !has || busyZip;
+    dlOne.disabled = !sel;
+    exportCropBtn.disabled = !sel;
+
+    [saveCrop,zoomIn,zoomOut,rotL,rotR,reset].forEach(b=> b.disabled = !sel);
+
+    clearAll.disabled = !has;
+
+    // Bloqueo de ratios cuando hay ratio global
+    const ratiosLocked = !!carouselRatioKey;
+    document.querySelectorAll('[data-r]').forEach(b => {
+      b.disabled = !sel || ratiosLocked;
+    });
+
+    changeRatioBtn.disabled = !has;
+  }
+
+  function renderList(){
+    list.innerHTML = '';
+    items.forEach((it, i) => {
+      const row = document.createElement('div');
+      row.className = 'item' + (i===selected ? ' active':'');
+
+      const th = document.createElement('div');
+      th.className = 'thumb';
+      const ti = document.createElement('img');
+      ti.src = it.thumbDataUrl || it.url;
+      th.appendChild(ti);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const n = document.createElement('div');
+      n.className = 'name';
+      n.textContent = `${pad2(i+1)} · ` + (it.name || `IMG_${pad2(i+1)}`);
+
+      const s = document.createElement('div');
+      const shownRatio = carouselRatioKey || it.ratioKey;
+      if(items.length && carouselRatioKey && it.ratioKey && it.ratioKey !== carouselRatioKey){
+        s.className = 'sub warn';
+        s.textContent = `⚠ Ratio distinto (${it.ratioKey}) — carrusel: ${carouselRatioKey}`;
+      } else {
+        s.className = 'sub';
+        s.textContent = shownRatio ? `Ratio carrusel: ${shownRatio}` : 'Sin recorte guardado (centrado automático)';
+      }
+
+      meta.appendChild(n); meta.appendChild(s);
+
+      const del = document.createElement('button');
+      del.className = 'iconMini';
+      del.title = 'Eliminar';
+      del.textContent = '✕';
+      del.addEventListener('click', (e) => { e.stopPropagation(); remove(i); });
+
+      row.appendChild(th);
+      row.appendChild(meta);
+      row.appendChild(del);
+      row.addEventListener('click', ()=> select(i));
+      list.appendChild(row);
+    });
+
+    updateHeader();
+    setDisabled();
+  }
+
+  function renderStrip(){
+    strip.innerHTML = '';
+    if(items.length===0) return;
+
+    items.forEach((it, i) => {
+      const ratioKey = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
+      const r = valueFromKey(ratioKey);
+
+      const frame = document.createElement('div');
+      frame.className = 'frame' + (i===selected ? ' active':'');
+
+      frame.draggable = true;
+      frame.dataset.index = String(i);
+
+      const W = 140;
+      const H = Math.max(60, Math.round(W / r));
+      frame.style.height = H + 'px';
+
+      const im = document.createElement('img');
+      im.className = 'frameImg';
+      im.src = it.thumbDataUrl || it.url;
+
+      const b1 = document.createElement('div');
+      b1.className = 'badge';
+      b1.textContent = pad2(i+1);
+
+      const b2 = document.createElement('div');
+      b2.className = 'badge2';
+      b2.textContent = ratioKey;
+
+      frame.addEventListener('click', ()=> select(i));
+
+      frame.addEventListener('dragstart', (e)=>{
+        dragFrom = i;
+        frame.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', String(i)); } catch {}
+      });
+
+      frame.addEventListener('dragend', ()=>{
+        dragFrom = null;
+        frame.classList.remove('dragging');
+        strip.querySelectorAll('.frame.over').forEach(el=> el.classList.remove('over'));
+      });
+
+      frame.addEventListener('dragover', (e)=>{
+        e.preventDefault();
+        frame.classList.add('over');
+        e.dataTransfer.dropEffect = 'move';
+      });
+
+      frame.addEventListener('dragleave', ()=> frame.classList.remove('over'));
+
+      frame.addEventListener('drop', (e)=>{
+        e.preventDefault();
+        frame.classList.remove('over');
+        const from = dragFrom ?? Number(e.dataTransfer.getData('text/plain'));
+        const to = i;
+        if(!Number.isFinite(from) || from===to) return;
+        reorder(from, to);
+        toast('', 'Orden actualizado', `Nueva posición: ${pad2(to+1)}.`);
+      });
+
+      frame.appendChild(im);
+      frame.appendChild(b1);
+      frame.appendChild(b2);
+      strip.appendChild(frame);
+    });
+  }
+
+  function renderAll(){
+    renderList();
+    renderStrip();
+    toggleEmpty();
+    updateRatioModeUI();
+  }
+
+  function reorder(from, to){
+    if(from<0 || to<0 || from>=items.length || to>=items.length) return;
+    const moved = items.splice(from, 1)[0];
+    items.splice(to, 0, moved);
+
+    if(selected === from) selected = to;
+    else if(from < selected && selected <= to) selected -= 1;
+    else if(to <= selected && selected < from) selected += 1;
+
+    renderAll();
+    updatePreview();
+  }
+
+  function remove(i){
+    if(i<0||i>=items.length) return;
+    const name = items[i]?.name || `IMG_${pad2(i+1)}`;
+    URL.revokeObjectURL(items[i].url);
+    items.splice(i,1);
+
+    if(items.length===0){
+      selected=-1;
+      destroyCropper();
+      preview.src='';
+      dots.innerHTML='';
+      img.src='';
+      ratioLabel.textContent = '1:1';
+      carouselRatioKey = null; // reset global
+      currentRatio = 1;
+      renderAll();
+      toast('warn', 'Todo vacío', 'Vuelve a añadir fotos para empezar.');
+      return;
+    }
+    selected = Math.min(selected, items.length-1);
+    select(selected);
+    renderAll();
+    updatePreview();
+    toast('bad', 'Eliminada', name);
+  }
+
+  function initCropper(){
+    destroyCropper();
+    cropper = new Cropper(img, {
+      viewMode: 1,
+      dragMode: 'move',
+      autoCropArea: 1,
+      background: false,
+      zoomOnWheel: false,
+      wheelZoomRatio: 0,
+      movable: true,
+      rotatable: true,
+      scalable: false,
+      cropBoxMovable: true,
+      cropBoxResizable: true,
+      responsive: false,
+      aspectRatio: currentRatio || NaN
+    });
+  }
+
+  function select(i){
+    if(i<0||i>=items.length) return;
+    selected = i;
+
+    // Si hay ratio global, fuerza currentRatio a ese valor
+    if(carouselRatioKey){
+      currentRatio = valueFromKey(carouselRatioKey);
+    }
+
+    const it = items[selected];
+    ratioLabel.textContent = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
+
+    img.src = it.url;
+    img.onload = () => {
+      initCropper();
+
+      // Si hay ratio global, siempre ese
+      if(carouselRatioKey){
+        cropper.setAspectRatio(currentRatio);
+      } else if(it.ratioKey){
+        currentRatio = valueFromKey(it.ratioKey);
+        cropper.setAspectRatio(currentRatio);
+      } else {
+        cropper.setAspectRatio(currentRatio);
+      }
+
+      if(it.cropData) cropper.setData(it.cropData);
+    };
+
+    renderAll();
+    updatePreview();
+  }
+
+  function moveSelection(dir){
+    if(items.length<=1) return;
+    selected = (selected + dir + items.length) % items.length;
+    select(selected);
+  }
+
+  function moveItem(dir){
+    if(selected<0) return;
+    const ni = selected + dir;
+    if(ni<0 || ni>=items.length) return;
+    reorder(selected, ni);
+  }
+
+  function buildDots(){
+    dots.innerHTML='';
+    items.forEach((_,i)=>{
+      const d=document.createElement('div');
+      d.className='dot'+(i===selected?' active':'');
+      dots.appendChild(d);
+    });
+  }
+
+  function updatePreview(){
+    if(items.length===0 || selected<0) { setDisabled(); return; }
+
+    const it = items[selected];
+    const ratioKey = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
+    const r = valueFromKey(ratioKey);
+
+    const w = media.clientWidth || 320;
+    media.style.height = Math.round(w / r) + 'px';
+
+    preview.src = it.thumbDataUrl || it.url;
+
+    ratioLabel.textContent = ratioKey;
+    buildDots();
+    setDisabled();
+
+    renderStrip();
+    renderList();
+  }
+
+  new ResizeObserver(() => updatePreview()).observe(media);
+
+  async function saveCurrentCrop(){
+    const it = items[selected];
+    if(!it || !cropper) return;
+
+    // Si aún no hay ratio global, el primer guardado lo fija
+    if(!carouselRatioKey){
+      const rk = keyFromValue(currentRatio);
+      lockCarouselRatioIfNeeded(rk);
+      currentRatio = valueFromKey(carouselRatioKey);
+      cropper.setAspectRatio(currentRatio);
+    }
+
+    // Guarda SIEMPRE con ratio global
+    it.cropData = cropper.getData(true);
+    it.ratioKey = carouselRatioKey;
+
+    const pr = valueFromKey(it.ratioKey);
+    const thW = 540;
+    const thH = Math.max(1, Math.round(thW / pr));
+    const c = cropper.getCroppedCanvas({
+      width: thW,
+      height: thH,
+      imageSmoothingEnabled: true,
+      imageSmoothingQuality: 'high'
+    });
+    it.thumbDataUrl = c.toDataURL('image/jpeg', 0.9);
+
+    renderAll();
+    updatePreview();
+    toast('ok', 'Recorte guardado', `${it.ratioKey} • carrusel bloqueado.`);
+  }
+
+  function dataURLToBlob(dataURL){
+    const [h,b] = dataURL.split(',');
+    const mime = h.match(/:(.*?);/)[1];
+    const bin = atob(b);
+    const arr = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+    return new Blob([arr], {type:mime});
+  }
+
+  function downloadBlob(blob, filename){
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }
+
+  function baseName(name){
+    return (name||'image')
+      .replace(/\.[a-z0-9]+$/i,'')
+      .replace(/[^\w\-]+/g,'_')
+      .slice(0,80);
+  }
+
+  async function imageFromUrl(url){
+    return new Promise((resolve, reject)=>{
+      const im = new Image();
+      im.onload = ()=> resolve(im);
+      im.onerror = reject;
+      im.src = url;
+    });
+  }
+
+  async function exportRecorteToDataURL(it){
+    const format = fmt.value;
+    const base = parseInt(sizeEl.value,10);
+    const quality = parseFloat(q.value);
+
+    const ratioKey = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
+    const {w:W,h:H} = outDims(ratioKey, base);
+
+    if(it === items[selected] && cropper){
+      // Asegura ratio del carrusel
+      if(carouselRatioKey) cropper.setAspectRatio(valueFromKey(carouselRatioKey));
+      const c = cropper.getCroppedCanvas({
+        width: W, height: H,
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high'
+      });
+      return c.toDataURL(format==='png'?'image/png':'image/jpeg', quality);
+    }
+
+    const imgEl = await imageFromUrl(it.url);
+    const canvas = document.createElement('canvas');
+    canvas.width=W; canvas.height=H;
+    const ctx = canvas.getContext('2d', {alpha: format==='png'});
+
+    if(format==='jpeg'){
+      ctx.fillStyle='#fff';
+      ctx.fillRect(0,0,W,H);
+    }
+
+    const targetRatio = valueFromKey(ratioKey);
+    let sx=0, sy=0, sw=imgEl.naturalWidth, sh=imgEl.naturalHeight;
+
+    if(it.cropData){
+      sx=it.cropData.x; sy=it.cropData.y; sw=it.cropData.width; sh=it.cropData.height;
+    } else {
+      const iw=imgEl.naturalWidth, ih=imgEl.naturalHeight, ir=iw/ih;
+      if(ir>targetRatio){ sh=ih; sw=Math.round(ih*targetRatio); sx=Math.round((iw-sw)/2); sy=0; }
+      else { sw=iw; sh=Math.round(iw/targetRatio); sx=0; sy=Math.round((ih-sh)/2); }
+    }
+
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality='high';
+    ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, W, H);
+
+    return canvas.toDataURL(format==='png'?'image/png':'image/jpeg', quality);
+  }
+
+  async function downloadSelectedRecorte(){
+    if(selected<0) return;
+    if(cropper) await saveCurrentCrop();
+
+    const it = items[selected];
+    const dataUrl = await exportRecorteToDataURL(it);
+    const blob = dataURLToBlob(dataUrl);
+
+    const ext = fmt.value==='png'?'png':'jpg';
+    const base = parseInt(sizeEl.value,10);
+    const rk = (carouselRatioKey || it.ratioKey || keyFromValue(currentRatio)).replace(':','x').replace('.','_');
+    const prefix = pad2(selected+1);
+
+    downloadBlob(blob, `${prefix}__${baseName(it.name)}__IG_${rk}__${base}.${ext}`);
+    toast('ok', 'Descargada', `${prefix} • ${carouselRatioKey || it.ratioKey || keyFromValue(currentRatio)}`);
+  }
+
+  async function downloadZIP(){
+    if(items.length===0 || busyZip) return;
+    if(selected>=0 && cropper) await saveCurrentCrop();
+
+    busyZip = true;
+    setDisabled();
+    toast('', 'Creando ZIP', 'Exportando todas las fotos…');
+
+    const zip = new JSZip();
+    const ext = fmt.value==='png'?'png':'jpg';
+    const base = parseInt(sizeEl.value,10);
+    const rkGlobal = carouselRatioKey || keyFromValue(currentRatio);
+
+    for(let i=0;i<items.length;i++){
+      const it = items[i];
+      const dataUrl = await exportRecorteToDataURL(it);
+      const blob = dataURLToBlob(dataUrl);
+      const rk = (rkGlobal).replace(':','x').replace('.','_');
+      zip.file(`${pad2(i+1)}__${baseName(it.name)}__IG_${rk}__${base}.${ext}`, blob);
+    }
+
+    const out = await zip.generateAsync({type:'blob'});
+    downloadBlob(out, `caruselforge_${base}px_${(rkGlobal).replace(':','x').replace('.','_')}.zip`);
+
+    busyZip = false;
+    setDisabled();
+    toast('ok', 'ZIP listo', `Incluye ${items.length} foto(s) en orden.`);
+  }
+
+  // Events
+  files.addEventListener('change', (e)=> addFiles(e.target.files));
+  openPicker.addEventListener('click', ()=> files.click());
+
+  clearAll.addEventListener('click', ()=>{
+    if(items.length && !confirm('¿Vaciar todo el carrusel?')) return;
+
+    destroyCropper();
+    items.forEach(it => it.url && URL.revokeObjectURL(it.url));
+    items=[]; selected=-1;
+    list.innerHTML=''; strip.innerHTML='';
+    preview.src=''; dots.innerHTML='';
+    img.src='';
+    ratioLabel.textContent = '1:1';
+    carouselRatioKey = null;
+    currentRatio = 1;
+
+    qVal.textContent = Number(q.value).toFixed(2);
+    updateHeader();
+    setDisabled();
+    toggleEmpty();
+    updateRatioModeUI();
+    toast('warn', 'Vaciado', 'El carrusel se ha reiniciado.');
+  });
+
+  [prevBtn,pPrev].forEach(b=> b.addEventListener('click', ()=> moveSelection(-1)));
+  [nextBtn,pNext].forEach(b=> b.addEventListener('click', ()=> moveSelection(+1)));
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.key==='ArrowLeft') moveSelection(-1);
+    if(e.key==='ArrowRight') moveSelection(+1);
+    if(e.key==='Escape' && modalOverlay.style.display==='flex') closeModal();
+  });
+
+  moveUp.addEventListener('click', ()=> moveItem(-1));
+  moveDown.addEventListener('click', ()=> moveItem(+1));
+
+  document.querySelectorAll('[data-r]').forEach(b=>{
+    b.addEventListener('click', ()=> {
+      if(carouselRatioKey){
+        toast('warn','Ratio bloqueado', `El carrusel está fijado en ${carouselRatioKey}. Usa “Cambiar ratio…”`);
+        return;
+      }
+      let r = 1;
+      try { r = Function(`"use strict"; return (${b.getAttribute('data-r')});`)(); } catch {}
+      currentRatio = r;
+      ratioLabel.textContent = keyFromValue(r);
+      if(cropper) cropper.setAspectRatio(currentRatio);
+      updatePreview();
+      toast('', 'Ratio', `Ahora: ${keyFromValue(r)}`);
+    });
+  });
+
+  zoomIn.addEventListener('click', ()=> cropper?.zoom(0.08));
+  zoomOut.addEventListener('click', ()=> cropper?.zoom(-0.08));
+  rotL.addEventListener('click', ()=> cropper?.rotate(-90));
+  rotR.addEventListener('click', ()=> cropper?.rotate(90));
+  reset.addEventListener('click', ()=> cropper?.reset());
+  saveCrop.addEventListener('click', saveCurrentCrop);
+
+  q.addEventListener('input', ()=> qVal.textContent = Number(q.value).toFixed(2));
+
+  dlOne.addEventListener('click', downloadSelectedRecorte);
+  exportCropBtn.addEventListener('click', downloadSelectedRecorte);
+  dlZip.addEventListener('click', downloadZIP);
+
+  // Dropzone UX
+  const stop = (e)=>{ e.preventDefault(); e.stopPropagation(); };
+  ['dragenter','dragover'].forEach(ev=>{
+    dropzone.addEventListener(ev, (e)=>{ stop(e); dropzone.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(ev=>{
+    dropzone.addEventListener(ev, (e)=>{ stop(e); dropzone.classList.remove('drag'); });
+  });
+  dropzone.addEventListener('drop', (e)=>{
+    const dt = e.dataTransfer;
+    if(dt?.files?.length) addFiles(dt.files);
+  });
+
+  // Modal events
+  changeRatioBtn.addEventListener('click', () => {
+    if(items.length===0) return;
+    openModal();
+  });
+  modalClose.addEventListener('click', closeModal);
+  modalCancel.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e)=> {
+    if(e.target === modalOverlay) closeModal();
+  });
+  modalApply.addEventListener('click', () => {
+    const newKey = modalRatio.value;
+    if(items.length && !confirm(`¿Aplicar ${newKey} a todo el carrusel? Se limpiarán recortes guardados.`)) return;
+    applyCarouselRatio(newKey);
+    closeModal();
+  });
+
+  // Init
+  qVal.textContent = Number(q.value).toFixed(2);
+  setDisabled();
+  updateHeader();
+  toggleEmpty();
+  updateRatioModeUI();
+})();
+</script>
+</body>
+</html>
