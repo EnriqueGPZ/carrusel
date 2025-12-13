@@ -99,7 +99,7 @@
     #headerMsg.warn { color: var(--warn); }
     #headerMsg.info { color: var(--text-muted); }
 
-    .topActions { flex: 0 0 auto; }
+    .topActions { flex: 0 0 auto; display:flex; gap:8px; }
 
     /* --- Botones --- */
     .btn {
@@ -293,7 +293,6 @@
     .toolGroup { display: flex; gap: 4px; align-items: center; }
     .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); font-weight: 600; margin-right: 4px; }
     
-    /* FIX: Contenedor del Canvas para ajuste perfecto */
     .editorCanvas {
       flex-grow: 1;
       height: 0; /* Force flex constraint */
@@ -313,13 +312,13 @@
 
     /* --- Derecha: Preview & Export --- */
     .cardBody.previewBody {
-       justify-content: center; /* Centrar verticalmente */
-       align-items: center; /* Centrar horizontalmente */
+       justify-content: center;
+       align-items: center;
     }
     
     .feed {
       width: 100%;
-      max-width: 300px; /* Un poco más estrecho para que quepa bien */
+      max-width: 300px;
       border: 1px solid var(--border);
       border-radius: 16px;
       background: #000;
@@ -451,40 +450,16 @@
     ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
 
     /* --- CROPPER FIX DEFINITIVO (VISUAL) --- */
-    
-    /* Fondo oscuro y opaco para el exterior */
-    .cropper-modal { 
-        background-color: #000 !important; 
-        opacity: 0.8 !important; 
-    }
-    
-    /* La caja de selección: totalmente transparente */
-    .cropper-view-box { 
-        outline: 1px solid var(--primary); 
-        background-color: transparent !important; 
-        display: block;
-        overflow: hidden;
-        width: 100%;
-        height: 100%;
-    }
-
-    /* EL FIX: Eliminamos el velo blanco de la zona de interacción */
-    .cropper-face {
-        background-color: transparent !important;
-    }
-    
-    /* Forzamos que la imagen DENTRO de la selección sea 100% opaca y sin filtros */
-    .cropper-view-box img {
-        opacity: 1 !important;
-        background: transparent !important;
-    }
-
+    .cropper-modal { background-color: #000 !important; opacity: 0.8 !important; }
+    .cropper-view-box { outline: 1px solid var(--primary); background-color: transparent !important; display: block; overflow: hidden; width: 100%; height: 100%; }
+    .cropper-face { background-color: transparent !important; }
+    .cropper-view-box img { opacity: 1 !important; background: transparent !important; }
     .cropper-line, .cropper-point { background-color: var(--primary); }
-    
-    .cropper-container { 
-        width: 100% !important; 
-        height: 100% !important; 
-    }
+    .cropper-container { width: 100% !important; height: 100% !important; }
+
+    /* Animación IA */
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .spinning { animation: spin 1s linear infinite; display:inline-block; }
   </style>
 </head>
 
@@ -505,6 +480,7 @@
   <div id="headerMsg"></div>
 
   <div class="topActions">
+    <button class="btn" id="aiSettings" title="Configurar API Key">⚙️ AI</button>
     <button class="btn bad" id="clearAll" title="Vaciar todo">Vaciar</button>
   </div>
 </header>
@@ -634,9 +610,12 @@
       </div>
 
       <div class="captionArea">
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px; align-items:flex-end">
             <label class="label">Texto para el post</label>
-            <span id="charCount" style="font-size:10px; color:var(--text-dim)">0 / 2200</span>
+            <div style="display:flex; gap:8px; align-items:center">
+                <button id="aiFixBtn" class="btn primary" style="height:20px; font-size:10px; padding:0 6px; display:none;">✨ Mejorar IA</button>
+                <span id="charCount" style="font-size:10px; color:var(--text-dim)">0 / 2200</span>
+            </div>
           </div>
           <textarea id="captionText" class="captionInput" placeholder="Escribe aquí tu copy..."></textarea>
       </div>
@@ -761,9 +740,11 @@
   const dlZip = $('dlZip');
   const exportCropBtn = $('exportCrop');
 
-  // Caption
+  // Caption & AI
   const captionText = $('captionText');
   const charCount = $('charCount');
+  const aiSettingsBtn = $('aiSettings');
+  const aiFixBtn = $('aiFixBtn');
 
   const countEl = $('count');
   const selNameEl = $('selName');
@@ -804,6 +785,9 @@
   let busyZip = false;
   let carouselRatioKey = null;
   let toastTimer = null;
+  
+  // AI Key Storage
+  let openAiKey = localStorage.getItem('carusel_ai_key') || '';
 
   editorCanvas.addEventListener('wheel', (e) => e.preventDefault(), { passive:false });
 
@@ -818,6 +802,77 @@
       headerMsg.style.opacity = '0';
     }, 3000);
   }
+
+  // --- AI LOGIC ---
+
+  function updateAiUi() {
+      aiFixBtn.style.display = openAiKey ? 'inline-flex' : 'none';
+      if(openAiKey) aiSettingsBtn.classList.add('primary');
+      else aiSettingsBtn.classList.remove('primary');
+  }
+
+  aiSettingsBtn.addEventListener('click', () => {
+      const key = prompt("Introduce tu API Key de OpenAI (sk-...):\nSe guardará en tu navegador.", openAiKey);
+      if (key !== null) {
+          openAiKey = key.trim();
+          localStorage.setItem('carusel_ai_key', openAiKey);
+          updateAiUi();
+          toast('ok', 'API Key', openAiKey ? 'Guardada correctamente.' : 'Eliminada.');
+      }
+  });
+
+  async function fixCaptionWithAI() {
+      const text = captionText.value.trim();
+      if (!text) return toast('warn', 'Texto vacío', 'Escribe algo primero.');
+      if (!openAiKey) return toast('bad', 'Sin API Key', 'Configúrala en el icono ⚙️');
+
+      const originalText = aiFixBtn.innerHTML;
+      aiFixBtn.disabled = true;
+      aiFixBtn.innerHTML = '<span class="spinning">↻</span> Pensando...';
+
+      try {
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${openAiKey}`
+              },
+              body: JSON.stringify({
+                  model: "gpt-4o-mini",
+                  messages: [
+                      {
+                          role: "system",
+                          content: "Eres un experto copywriter para Instagram. Tu tarea es corregir la ortografía, gramática y mejorar ligeramente el estilo del texto proporcionado para que tenga mejor 'engagement'. Mantén la longitud similar. Devuelve SOLO el texto corregido."
+                      },
+                      { role: "user", content: text }
+                  ],
+                  temperature: 0.7
+              })
+          });
+
+          const data = await response.json();
+          if (data.error) throw new Error(data.error.message);
+
+          const newText = data.choices[0].message.content;
+          captionText.value = newText;
+          
+          const len = newText.length;
+          charCount.textContent = `${len} / 2200`;
+          
+          toast('ok', 'IA', 'Texto mejorado exitosamente.');
+
+      } catch (err) {
+          console.error(err);
+          toast('bad', 'Error IA', 'Revisa la consola o tu Key.');
+      } finally {
+          aiFixBtn.disabled = false;
+          aiFixBtn.innerHTML = originalText;
+      }
+  }
+
+  aiFixBtn.addEventListener('click', fixCaptionWithAI);
+
+  // --- MAIN APP LOGIC ---
 
   function destroyCropper(){
     if(cropper){ cropper.destroy(); cropper=null; }
@@ -1426,6 +1481,7 @@
   });
 
   qVal.textContent = Number(q.value).toFixed(2);
+  updateAiUi();
   setDisabled();
   updateHeader();
   toggleEmpty();
