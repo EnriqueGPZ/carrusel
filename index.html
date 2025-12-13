@@ -487,7 +487,30 @@
       border-top:1px solid rgba(255,255,255,.08);
       display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
     }
-  </style>
+  
+
+    /* =========================
+       CropperJS (Safari fix)
+       - Fuera del recorte: oscuro
+       - Dentro del recorte: SIN velo (fiel a la foto)
+       ========================= */
+    .cropper-modal{
+      background:#000 !important;
+      opacity:0.55 !important; /* ajusta 0.4–0.7 si quieres más/menos oscuro */
+    }
+    .cropper-face{
+      background-color: transparent !important; /* quita el velo dentro del recorte */
+      opacity:1 !important;
+    }
+    /* Safari: evita “lavados” por composición de capas */
+    .cropper-container,
+    .cropper-canvas,
+    .cropper-crop-box,
+    .cropper-wrap-box{
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+</style>
 </head>
 
 <body>
