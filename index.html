@@ -3,670 +3,593 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CaruselForge</title>
+  <title>CaruselForge | Editor Profesional</title>
 
-  <!-- CropperJS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-
-  <!-- JSZip -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <style>
-    :root{
-      --bg:#0b0e14;
-      --line:#1e2a40;
-      --text:#e8ecf6;
-      --muted:#a8b2c7;
-      --accent:#7dd3fc;
-      --accent2:#a78bfa;
-      --ok:#34d399;
-      --bad:#fb7185;
-      --warn:#fbbf24;
-      --shadow: 0 18px 54px rgba(0,0,0,.38);
-      --r:18px;
+    :root {
+      /* Paleta Modern Dark (Slate/Zinc) */
+      --bg: #020617;
+      --surface-1: #0f172a;
+      --surface-2: #1e293b;
+      --surface-3: #334155;
+      
+      --border: #1e293b;
+      --border-hover: #475569;
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      /* Acentos */
+      --primary: #6366f1; /* Indigo */
+      --primary-hover: #4f46e5;
+      --primary-fg: #ffffff;
+      
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.1);
+      
+      --success: #10b981;
+      --warn: #f59e0b;
+      
+      /* Variables UI */
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
     }
 
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      color:var(--text);
-      background:
-        radial-gradient(900px 520px at 15% -10%, rgba(125,211,252,.14), transparent 60%),
-        radial-gradient(900px 520px at 95% 0%, rgba(167,139,250,.12), transparent 55%),
-        var(--bg);
+    * { box-sizing: border-box; outline: none; }
+    
+    html, body { height: 100%; overflow: hidden; }
+    
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text-main);
+      background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, transparent 45%);
+      background-attachment: fixed;
+      font-size: 14px;
+      line-height: 1.5;
+      display: flex; flex-direction: column;
     }
 
-    header{
-      position:sticky; top:0; z-index:20;
-      padding:14px 14px 10px;
-      border-bottom:1px solid var(--line);
-      background: rgba(11,14,20,.78);
-      backdrop-filter: blur(10px);
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-    }
-
-    .brand{display:flex; align-items:center; gap:10px; min-width:0;}
-    .logo{
-      width:36px;height:36px;border-radius:13px;
-      border:1px solid rgba(255,255,255,.09);
-      background: linear-gradient(135deg, rgba(125,211,252,.22), rgba(167,139,250,.18));
-      display:flex;align-items:center;justify-content:center;
-      box-shadow: 0 10px 28px rgba(0,0,0,.28);
-      flex:0 0 auto;
-    }
-    .titleWrap{min-width:0}
-    .title{
-      margin:0;
-      font-size:13px;
-      font-weight:820;
-      letter-spacing:.2px;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
-    .subtitle{
-      margin:2px 0 0;
-      font-size:12px;
-      color:var(--muted);
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
-
-    .topActions{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-    input[type="file"]{display:none}
-
-    .btn{
-      height:40px;
-      padding:0 12px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.02);
-      color:var(--text);
-      display:inline-flex; align-items:center; justify-content:center;
-      gap:8px;
-      cursor:pointer;
-      transition: transform .06s ease, border-color .15s ease, background .15s ease, opacity .15s ease;
-      user-select:none;
-      font-size:12.5px;
-      white-space:nowrap;
-    }
-    .btn:hover{border-color: rgba(125,211,252,.55); background: rgba(125,211,252,.06)}
-    .btn:active{transform: translateY(1px)}
-    .btn.primary{border-color: rgba(125,211,252,.65); background: rgba(125,211,252,.08)}
-    .btn.ok{border-color: rgba(52,211,153,.45)}
-    .btn.ok:hover{border-color: rgba(52,211,153,.75); background: rgba(52,211,153,.08)}
-    .btn.bad{border-color: rgba(251,113,133,.45)}
-    .btn.bad:hover{border-color: rgba(251,113,133,.75); background: rgba(251,113,133,.08)}
-    .btn:disabled{opacity:.45; pointer-events:none}
-
-    .fileBtn{
-      display:inline-flex; align-items:center; gap:8px;
-      height:40px;
-      padding:0 12px;
-      border-radius:12px;
-      border:1px dashed rgba(125,211,252,.55);
-      background: rgba(125,211,252,.07);
-      cursor:pointer;
-      font-size:12.5px;
-      user-select:none;
-      white-space:nowrap;
-    }
-    .fileBtn:hover{background: rgba(125,211,252,.10)}
-
-    .select{
-      height:40px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.02);
-      color: var(--text);
-      padding:0 10px;
-      font-size:12.5px;
-      outline:none;
-      white-space:nowrap;
-    }
-    input[type="range"]{accent-color: var(--accent)}
-
-    main{
-      display:grid;
-      grid-template-columns: 360px 1fr 420px;
-      gap:14px;
-      padding:14px;
-      align-items:start;
-    }
-    @media (max-width: 1200px){ main{grid-template-columns:1fr} }
-
-    .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.012));
-      border:1px solid var(--line);
-      border-radius: var(--r);
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-    .cardTop{
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-      padding:12px;
-      border-bottom:1px solid var(--line);
-      background: rgba(255,255,255,.02);
-    }
-    .cardTitle{display:flex; flex-direction:column; gap:2px; min-width:0;}
-    .cardTitle h2{
-      margin:0;
-      font-size:13px;
-      font-weight:850;
-      letter-spacing:.2px;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis
-    }
-    .cardTitle p{
-      margin:0;
-      font-size:12px;
-      color:var(--muted);
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis
-    }
-    .cardBody{padding:12px}
-
-    .kpi{
-      display:flex; gap:8px; align-items:center;
-      padding:10px;
-      border:1px solid rgba(255,255,255,.08);
-      border-radius:14px;
-      background: rgba(255,255,255,.02);
-      font-size:12.5px;
-      color:var(--muted);
-      flex-wrap:wrap;
-    }
-    .kpi strong{color:var(--text)}
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    .label{font-size:12px;color:var(--muted);margin-right:6px}
-
-    /* Dropzone */
-    .dropzone{
-      border-radius: 16px;
-      border:1px dashed rgba(125,211,252,.35);
-      background: rgba(0,0,0,.12);
-      padding:12px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:12px;
-    }
-    .dropLeft{display:flex;gap:12px;align-items:center;min-width:0}
-    .spark{
-      width:44px;height:44px;border-radius:16px;
-      background: linear-gradient(135deg, rgba(125,211,252,.18), rgba(167,139,250,.14));
-      border:1px solid rgba(255,255,255,.10);
-      display:flex;align-items:center;justify-content:center;
-      box-shadow: 0 16px 40px rgba(0,0,0,.30);
-      flex:0 0 auto;
-    }
-    .dropText{min-width:0}
-    .dropText .a{
-      font-weight:900;
-      font-size:13px;
-      letter-spacing:.2px;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis
-    }
-    .dropText .b{
-      font-size:12.2px;
-      color:rgba(168,178,199,.95);
-      margin-top:2px;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis
-    }
-    .dropzone.drag{
-      border-color: rgba(125,211,252,.65);
-      background: rgba(125,211,252,.06);
-    }
-
-    .empty{
-      border:1px solid rgba(255,255,255,.08);
-      border-radius: 14px;
-      background: rgba(0,0,0,.10);
-      padding:12px;
-      color: rgba(168,178,199,.95);
-      font-size:12.6px;
-      line-height:1.35;
-      text-align:left;
-    }
-
-    /* Left list */
-    .list{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      max-height: 64vh;
-      overflow:auto;
-      padding-right:4px;
-      margin-top: 4px;
-    }
-    .item{
-      display:grid;
-      grid-template-columns: 46px 1fr auto;
-      gap:10px;
-      align-items:center;
-      border:1px solid rgba(255,255,255,.08);
-      background: rgba(255,255,255,.02);
-      border-radius:14px;
-      padding:8px;
-      cursor:pointer;
-    }
-    .item.active{outline:2px solid rgba(125,211,252,.45)}
-    .thumb{
-      width:46px;height:46px;border-radius:12px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.06);
-      background:#070a10;
-    }
-    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
-    .meta{min-width:0}
-    .name{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.95}
-    .sub{font-size:11.6px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
-    .sub.warn{color: rgba(251,191,36,.95)}
-    .iconMini{
-      width:36px;height:36px;border-radius:12px;
-      display:inline-flex;align-items:center;justify-content:center;
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.02);
-      cursor:pointer;
-      font-size:14px;
-    }
-    .iconMini:hover{border-color: rgba(251,113,133,.75); background: rgba(251,113,133,.08)}
-
-    /* Editor */
-    .editorWrap{
-      border:1px solid var(--line);
-      border-radius: var(--r);
-      overflow:hidden;
-      background: #070a10;
-    }
-    .editorTop{
-      padding:12px;
-      border-bottom:1px solid var(--line);
-      background: rgba(255,255,255,.02);
-      display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
-    }
-    .toolGroup{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
-    .editorCanvas{
-      padding:10px;
-      background:#000;
-      height: 640px;
-      display:flex; align-items:center; justify-content:center;
-    }
-    @media (max-width:1200px){ .editorCanvas{height: 520px} }
-    #image{max-width:100%;max-height:100%;display:block;-webkit-user-drag:none;user-select:none}
-
-    /* Preview (IG-like) */
-    .feed{
-      border:1px solid var(--line);
-      border-radius: 22px;
-      overflow:hidden;
-      background: rgba(255,255,255,.02);
-    }
-    .feedHead, .feedFoot{
-      height:52px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      display:flex; align-items:center;
-      padding:0 12px;
-      gap:10px;
-    }
-    .feedFoot{border-top:1px solid rgba(255,255,255,.06); border-bottom:none}
-    .avatar{
-      width:28px;height:28px;border-radius:999px;
-      background: linear-gradient(135deg, rgba(125,211,252,.75), rgba(167,139,250,.72));
-    }
-    .lines{display:flex;flex-direction:column;gap:6px}
-    .line{height:7px;border-radius:999px;background: rgba(255,255,255,.12)}
-    .line.a{width:120px}
-    .line.b{width:78px;opacity:.75}
-
-    .media{
-      width:100%;
-      background:#000;
-      position:relative;
-      overflow:hidden;
-      height: 320px;
-    }
-    .media img{width:100%;height:100%;display:block;object-fit: cover}
-    .nav{
-      position:absolute; inset:0;
-      display:flex; justify-content:space-between; align-items:center;
-      pointer-events:none;
-      padding:0 10px;
-      z-index:5;
-    }
-    .nav button{
-      pointer-events:auto;
-      width:36px;height:36px;border-radius:999px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.35);
-      color:#fff;
-      cursor:pointer;
-      font-size:18px;
-      line-height:1;
-    }
-    .nav button:disabled{opacity:.35; cursor:default}
-    .dots{
-      position:absolute;
-      left:50%; bottom:10px;
-      transform:translateX(-50%);
-      display:flex; gap:6px;
-      padding:6px 8px;
-      border-radius:999px;
-      background: rgba(0,0,0,.35);
-      border:1px solid rgba(255,255,255,.10);
-      backdrop-filter: blur(6px);
-      z-index:6;
-    }
-    .dot{width:6px;height:6px;border-radius:999px;background: rgba(255,255,255,.35)}
-    .dot.active{background: rgba(125,211,252,.95)}
-
-    /* Storyboard strip */
-    .stripWrap{padding: 0 14px 14px}
-    .strip{
-      display:flex;
-      gap:10px;
-      overflow:auto;
-      padding:12px;
-      background: rgba(0,0,0,.12);
-      border-top:1px solid rgba(255,255,255,.06);
-    }
-    .frame{
-      position:relative;
-      flex:0 0 auto;
-      width: 140px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.10);
-      background:#000;
-      overflow:hidden;
-      cursor:grab;
-      transition: transform .08s ease, border-color .15s ease, opacity .12s ease;
-    }
-    .frame:hover{border-color: rgba(125,211,252,.55)}
-    .frame:active{transform: translateY(1px); cursor:grabbing;}
-    .frame.active{outline:2px solid rgba(125,211,252,.55)}
-    .frameImg{width:100%;height:100%;object-fit:cover;display:block}
-    .badge{
-      position:absolute; top:8px; left:8px;
-      padding:4px 8px;
-      border-radius:999px;
-      background: rgba(0,0,0,.45);
-      border:1px solid rgba(255,255,255,.12);
-      font-size:11px;
-      color:#fff;
-      backdrop-filter: blur(6px);
-    }
-    .badge2{
-      position:absolute; bottom:8px; left:8px;
-      padding:4px 8px;
-      border-radius:999px;
-      background: rgba(0,0,0,.45);
-      border:1px solid rgba(255,255,255,.12);
-      font-size:11px;
-      color:#fff;
-      backdrop-filter: blur(6px);
-      opacity:.92;
-    }
-    .frame.dragging{opacity:.35}
-    .frame.over{outline:2px dashed rgba(125,211,252,.65); outline-offset:-6px}
-
-    /* Icons */
-    .i{width:16px;height:16px;display:inline-block}
-
-    /* Toasts */
-    .toasts{
-      position:fixed;
-      right:14px;
-      bottom:14px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      z-index:50;
-      pointer-events:none;
-    }
-    .toast{
-      pointer-events:none;
-      min-width: 240px;
-      max-width: 360px;
-      border-radius: 14px;
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(11,14,20,.86);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 18px 50px rgba(0,0,0,.40);
-      padding:10px 12px;
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      animation: pop .18s ease-out;
-    }
-    @keyframes pop{from{transform:translateY(6px);opacity:.0}to{transform:translateY(0);opacity:1}}
-    .tDot{
-      width:10px;height:10px;border-radius:999px;margin-top:3px;
-      background: rgba(125,211,252,.95);
-      box-shadow: 0 0 0 6px rgba(125,211,252,.12);
-      flex:0 0 auto;
-    }
-    .tDot.ok{background: rgba(52,211,153,.95); box-shadow:0 0 0 6px rgba(52,211,153,.14)}
-    .tDot.bad{background: rgba(251,113,133,.95); box-shadow:0 0 0 6px rgba(251,113,133,.12)}
-    .tDot.warn{background: rgba(251,191,36,.95); box-shadow:0 0 0 6px rgba(251,191,36,.14)}
-    .tTxt b{display:block;font-size:12.5px}
-    .tTxt span{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.25}
-
-    /* Modal */
-    .modalOverlay{
-      position:fixed; inset:0; z-index:60;
-      background: rgba(0,0,0,.55);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:14px;
-    }
-    .modal{
-      width:min(520px, 100%);
-      border-radius: 18px;
-      border:1px solid rgba(255,255,255,.10);
-      background: rgba(11,14,20,.92);
+    /* --- Header --- */
+    header {
+      flex: 0 0 60px; 
+      padding: 0 20px;
+      background: rgba(2, 6, 23, 0.95);
       backdrop-filter: blur(12px);
-      box-shadow: 0 28px 80px rgba(0,0,0,.55);
-      overflow:hidden;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 20px;
+      z-index: 40;
     }
-    .modalTop{
-      padding:12px 12px;
-      border-bottom:1px solid rgba(255,255,255,.08);
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-    }
-    .modalTop b{font-size:13px; letter-spacing:.2px}
-    .modalBody{padding:12px}
-    .modalBody p{
-      margin:0 0 10px;
-      color: rgba(168,178,199,.95);
-      font-size:12.6px;
-      line-height:1.4;
-      text-align:left;
-    }
-    .modalActions{
-      padding:12px;
-      border-top:1px solid rgba(255,255,255,.08);
-      display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
-    }
-  
 
-    /* =========================
-       CropperJS (Safari fix)
-       - Fuera del recorte: oscuro
-       - Dentro del recorte: SIN velo (fiel a la foto)
-       ========================= */
-    .cropper-modal{
-      background:#000 !important;
-      opacity:0.55 !important; /* ajusta 0.4–0.7 si quieres más/menos oscuro */
+    .brand { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+    .logo {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
     }
-    .cropper-face{
-      background-color: transparent !important; /* quita el velo dentro del recorte */
-      opacity:1 !important;
+    .title { margin: 0; font-weight: 600; font-size: 15px; color: var(--text-main); }
+
+    /* --- Notification Area --- */
+    #headerMsg {
+      flex: 1; 
+      text-align: center; 
+      font-size: 13px; font-weight: 500;
+      opacity: 0; transition: opacity 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    /* Safari: evita “lavados” por composición de capas */
-    .cropper-container,
-    .cropper-canvas,
-    .cropper-crop-box,
-    .cropper-wrap-box{
-      transform: translateZ(0);
-      backface-visibility: hidden;
+    #headerMsg.ok { color: var(--success); }
+    #headerMsg.bad { color: var(--danger); }
+    #headerMsg.warn { color: var(--warn); }
+    #headerMsg.info { color: var(--text-muted); }
+
+    .topActions { flex: 0 0 auto; }
+
+    /* --- Botones --- */
+    .btn {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface-1);
+      color: var(--text-main);
+      transition: all 0.15s ease;
+      white-space: nowrap;
     }
-</style>
+    .btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border-hover); }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: var(--primary-fg);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .btn.primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+    .btn.bad { color: var(--danger); background: transparent; border-color: transparent; }
+    .btn.bad:hover { background: var(--danger-bg); }
+
+    /* --- Selects & Inputs --- */
+    .select, input[type="range"] {
+      height: 32px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-main);
+      padding: 0 10px;
+      font-size: 12px;
+    }
+    .select:focus { border-color: var(--primary); }
+
+    input[type="range"] { padding: 0; height: 4px; appearance: none; background: var(--surface-3); border: none; }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--text-main); cursor: pointer;
+    }
+
+    /* --- Layout Principal --- */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr) 340px; 
+      gap: 16px;
+      padding: 16px;
+      overflow: hidden; 
+      min-height: 0;
+    }
+    
+    @media (max-width: 1100px){ main { grid-template-columns: 1fr; overflow-y: auto; display:flex; flex-direction:column; } }
+
+    /* --- Cards --- */
+    .card {
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      height: 100%;
+      min-height: 0;
+    }
+    .cardTop {
+      flex: 0 0 auto;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-1);
+      display: flex; align-items: center; justify-content: space-between;
+      min-height: 48px;
+    }
+    .cardTitle h2 { font-size: 13px; font-weight: 600; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    /* Scroll areas */
+    .cardBody { 
+      padding: 14px; 
+      flex: 1; 
+      overflow-y: auto; 
+      display: flex; flex-direction: column; 
+      min-height: 0; 
+    }
+
+    /* --- Izquierda: Lista --- */
+    .dropzone {
+      border: 1px dashed var(--border-hover);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      text-align: center;
+      background: var(--bg);
+      transition: all .2s;
+      margin-bottom: 12px;
+      flex: 0 0 auto;
+    }
+    .dropzone.drag { border-color: var(--primary); background: rgba(99, 102, 241, 0.05); }
+    
+    .dropLeft { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .spark {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--surface-2);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted);
+    }
+    .dropText .a { font-weight: 500; font-size: 13px; color: var(--text-main); }
+    .dropText .b { font-size: 11px; color: var(--text-muted); }
+    input[type="file"]{ display: none; }
+
+    .kpi {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text-muted);
+      padding: 6px 10px;
+      background: var(--surface-2);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      flex: 0 0 auto;
+    }
+    .kpi strong { color: var(--text-main); font-weight: 600; }
+
+    .list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; flex: 1; min-height: 0; }
+    .item {
+      display: grid; grid-template-columns: 36px 1fr auto; gap: 10px;
+      padding: 6px;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .item:hover { background: var(--surface-2); }
+    .item.active { background: var(--surface-2); border-color: var(--primary); }
+    
+    .thumb { width: 36px; height: 36px; border-radius: 6px; overflow: hidden; background: black; }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .name { font-size: 12px; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub { font-size: 10px; color: var(--text-dim); }
+    .sub.warn { color: var(--warn); }
+    
+    .iconMini {
+      width: 24px; height: 24px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); cursor: pointer;
+      transition: all .2s; border: none; background: transparent;
+    }
+    .iconMini:hover { background: var(--danger-bg); color: var(--danger); }
+
+    .empty {
+      padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px;
+      border: 1px dashed var(--border); border-radius: var(--radius-lg); margin-top: 10px;
+    }
+
+    /* --- Centro: Editor --- */
+    .centerCol {
+      display: flex; flex-direction: column; height: 100%;
+      overflow: hidden;
+    }
+
+    .editorToolbar {
+      flex: 0 0 auto;
+      margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface-1); padding: 6px 10px;
+      border: 1px solid var(--border); border-radius: 8px;
+    }
+
+    .editorWrap {
+      flex: 1;
+      display: flex; flex-direction: column;
+      background: #000;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      min-height: 0;
+    }
+
+    .editorTop {
+      flex: 0 0 auto;
+      background: var(--surface-2);
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    
+    .toolGroup { display: flex; gap: 4px; align-items: center; }
+    .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); font-weight: 600; margin-right: 4px; }
+    
+    /* FIX: Contenedor del Canvas para ajuste perfecto */
+    .editorCanvas {
+      flex-grow: 1;
+      height: 0; /* Force flex constraint */
+      width: 100%;
+      position: relative;
+      background-image: 
+        linear-gradient(45deg, #111 25%, transparent 25%), 
+        linear-gradient(-45deg, #111 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #111 75%), 
+        linear-gradient(-45deg, transparent 75%, #111 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      background-color: #050505;
+      overflow: hidden; 
+    }
+    #image { display: block; max-width: 100%; }
+
+    /* --- Derecha: Preview & Export --- */
+    .cardBody.previewBody {
+       justify-content: center; /* Centrar verticalmente */
+       align-items: center; /* Centrar horizontalmente */
+    }
+    
+    .feed {
+      width: 100%;
+      max-width: 300px; /* Un poco más estrecho para que quepa bien */
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #000;
+      overflow: hidden;
+      box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+      flex: 0 0 auto;
+      margin-bottom: 16px;
+    }
+    .feedHead {
+      height: 40px; padding: 0 12px; display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid #222;
+    }
+    .avatar { width: 20px; height: 20px; border-radius: 50%; background: linear-gradient(to right, #6366f1, #ec4899); }
+    
+    .media { 
+        width: 100%; 
+        position: relative; 
+        background: #111; 
+        min-height: 100px;
+        display: flex; align-items: center; justify-content: center;
+        transition: height 0.2s ease-out;
+    }
+    .media img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    
+    .nav { position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center; padding: 10px; pointer-events: none; }
+    .nav button {
+      pointer-events: auto; width: 24px; height: 24px; border-radius: 50%;
+      background: rgba(255,255,255,0.9); color: black; border: none;
+      font-weight: bold; cursor: pointer; opacity: 0.8; font-size: 12px;
+    }
+    .nav button:hover { opacity: 1; transform: scale(1.1); }
+    
+    .dots {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 4px;
+    }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.3); transition: .2s; }
+    .dot.active { background: #3b82f6; transform: scale(1.2); }
+
+    .feedFoot { padding: 8px 12px; border-top: 1px solid #222; }
+
+    /* Área de Caption */
+    .captionArea {
+        margin-bottom: 16px; border-top: 1px solid var(--border); padding-top: 12px; width: 100%;
+    }
+    .captionInput {
+        width: 100%;
+        height: 80px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        color: var(--text-main);
+        padding: 8px;
+        font-family: var(--font-sans);
+        font-size: 12px;
+        resize: vertical;
+        margin-top: 4px;
+    }
+    .captionInput:focus { border-color: var(--primary); }
+
+    .exportSection {
+        width: 100%; border-top: 1px solid var(--border); padding-top: 12px; margin-top: auto;
+    }
+
+    /* --- Storyboard (Bottom) --- */
+    .stripWrap {
+      flex: 0 0 130px; 
+      z-index: 30;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 0 16px 10px;
+      display: flex; flex-direction: column;
+    }
+    .stripWrap .card {
+      height: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: none;
+    }
+    .strip {
+      display: flex; gap: 10px; overflow-x: auto; padding: 10px;
+      background: var(--surface-1);
+      align-items: center; height: 100%;
+    }
+    .frame {
+      position: relative; flex: 0 0 auto;
+      border: 2px solid transparent;
+      border-radius: 6px; overflow: hidden;
+      cursor: grab; transition: transform .1s, border-color .2s;
+      background: #000;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    .frame:hover { transform: translateY(-2px); border-color: var(--border-hover); }
+    .frame.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
+    .frame.dragging { opacity: 0.4; }
+    .frame.over { border: 2px dashed var(--primary); }
+    
+    .badge {
+      position: absolute; top: 4px; left: 4px; padding: 2px 4px; border-radius: 3px;
+      font-size: 9px; font-weight: 600;
+      background: rgba(0,0,0,0.6); color: white; backdrop-filter: blur(4px);
+    }
+
+    /* --- Modal --- */
+    .modalOverlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center;
+    }
+    .modal {
+      width: 380px; max-width: 90%;
+      background: var(--surface-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+    .modalTop {
+      padding: 14px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modalBody { padding: 16px; }
+    .modalActions { padding: 14px; background: var(--surface-2); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* --- Utility Icons (SVG) --- */
+    .i { width: 14px; height: 14px; display: inline-block; vertical-align: middle; }
+    
+    /* Scrollbars Elegantes */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+    /* --- CROPPER FIX DEFINITIVO (VISUAL) --- */
+    
+    /* Fondo oscuro y opaco para el exterior */
+    .cropper-modal { 
+        background-color: #000 !important; 
+        opacity: 0.8 !important; 
+    }
+    
+    /* La caja de selección: totalmente transparente */
+    .cropper-view-box { 
+        outline: 1px solid var(--primary); 
+        background-color: transparent !important; 
+        display: block;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* EL FIX: Eliminamos el velo blanco de la zona de interacción */
+    .cropper-face {
+        background-color: transparent !important;
+    }
+    
+    /* Forzamos que la imagen DENTRO de la selección sea 100% opaca y sin filtros */
+    .cropper-view-box img {
+        opacity: 1 !important;
+        background: transparent !important;
+    }
+
+    .cropper-line, .cropper-point { background-color: var(--primary); }
+    
+    .cropper-container { 
+        width: 100% !important; 
+        height: 100% !important; 
+    }
+  </style>
 </head>
 
 <body>
 <header>
   <div class="brand">
-    <div class="logo" aria-hidden="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-        <path d="M6 16.5c2.2 2.2 9.8 2.2 12 0" stroke="rgba(232,236,246,.9)" stroke-width="1.7" stroke-linecap="round"/>
-        <path d="M7 8.2c3-3 7-3 10 0" stroke="rgba(125,211,252,.9)" stroke-width="1.7" stroke-linecap="round"/>
-        <path d="M9 11.2c1.8-1.8 4.2-1.8 6 0" stroke="rgba(167,139,250,.9)" stroke-width="1.7" stroke-linecap="round"/>
-        <circle cx="12" cy="15.6" r="1.2" fill="rgba(52,211,153,.9)"/>
+    <div class="logo">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect>
+        <path d="M12 7v10"></path>
       </svg>
     </div>
     <div class="titleWrap">
-      <p class="title">Carrusel Insta - por Enrique Gil</p>
-      <p class="subtitle">Recorta carruseles perfectos para Instagram</p>
+      <p class="title">CaruselForge</p>
     </div>
   </div>
 
+  <div id="headerMsg"></div>
+
   <div class="topActions">
-    <label class="fileBtn" title="Añadir imágenes">
-      <input id="files" type="file" accept="image/*" multiple>
-      <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      Añadir fotos
-    </label>
-    <button class="btn bad" id="clearAll" title="Vaciar todo">
-      <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M6 7h12M10 7V5h4v2m-6 3v9m4-9v9m4-9v9M7 7l1 14h8l1-14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      Vaciar
-    </button>
+    <button class="btn bad" id="clearAll" title="Vaciar todo">Vaciar</button>
   </div>
 </header>
 
 <main>
-  <!-- LEFT -->
   <section class="card">
     <div class="cardTop">
       <div class="cardTitle">
-        <h2>Carrusel</h2>
-        <p>Selecciona, ordena y elimina</p>
+        <h2>Imágenes</h2>
       </div>
-      <div class="row">
-        <button class="btn" id="moveUp" title="Mover arriba">
-          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M12 5l-6 6m6-6l6 6M12 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Subir
-        </button>
-        <button class="btn" id="moveDown" title="Mover abajo">
-          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M12 19l6-6m-6 6l-6-6M12 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Bajar
-        </button>
+      <div style="display:flex; gap:6px">
+         <button class="btn" id="moveUp" title="Subir" style="padding:0 8px">↑</button>
+         <button class="btn" id="moveDown" title="Bajar" style="padding:0 8px">↓</button>
       </div>
     </div>
 
     <div class="cardBody">
-      <div class="dropzone" id="dropzone">
+      <label class="dropzone" id="dropzone" style="cursor:pointer">
+        <input id="files" type="file" accept="image/*" multiple>
         <div class="dropLeft">
-          <div class="spark" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M12 3v10m0 0l4-4m-4 4l-4-4" stroke="rgba(232,236,246,.92)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M5 20h14" stroke="rgba(125,211,252,.9)" stroke-width="2" stroke-linecap="round"/>
+          <div class="spark">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+               <polyline points="17 8 12 3 7 8"></polyline>
+               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
           </div>
           <div class="dropText">
-            <div class="a">Arrastra fotos aquí</div>
-            <div class="b">o pulsa “Elegir fotos”</div>
+            <div class="a">Añadir fotos</div>
           </div>
         </div>
-        <div class="row">
-          <button class="btn primary" id="openPicker" title="Elegir fotos">
-            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M4 7h16v12H4V7Z" stroke="currentColor" stroke-width="2"/><path d="M8 7V5h8v2" stroke="currentColor" stroke-width="2"/><path d="M8 13l2-2 3 3 3-3 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Elegir fotos
-          </button>
-        </div>
-      </div>
+      </label>
 
       <div id="empty" class="empty" style="display:none">
-        Añade imágenes para empezar.
+        Arrastra tus imágenes aquí
       </div>
 
-      <div class="kpi" style="margin-top:12px">
+      <div class="kpi">
         <span>Fotos:</span> <strong id="count">0</strong>
-        <span style="opacity:.45">•</span>
-        <span>Seleccionada:</span> <strong id="selName">—</strong>
+        <span style="opacity:.3; margin:0 6px">|</span>
+        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px" id="selName">—</span>
       </div>
 
-      <div style="height:10px"></div>
       <div class="list" id="list"></div>
 
-      <div style="height:10px"></div>
-      <div class="row">
-        <button class="btn" id="prev" title="Anterior (←)">
-          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Anterior
-        </button>
-        <button class="btn" id="next" title="Siguiente (→)">
-          Siguiente
-          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
+      <div style="margin-top:10px; display:flex; gap:6px; flex: 0 0 auto;">
+        <button class="btn" style="flex:1" id="prev">Ant</button>
+        <button class="btn" style="flex:1" id="next">Sig</button>
       </div>
     </div>
   </section>
 
-  <!-- CENTER -->
-  <section class="card">
-    <div class="cardTop">
-      <div class="cardTitle">
-        <h2>Recorte</h2>
-        <p>Elige ratio y encuadra</p>
-      </div>
-      <div class="kpi">
-        <span>Ratio:</span> <strong id="ratioLabel">1:1</strong>
-        <span style="opacity:.45">•</span>
-        <span id="ratioMode" style="color:rgba(168,178,199,.95)">Libre</span>
-        <span style="opacity:.45">•</span>
-        <button class="btn" id="changeRatio" title="Cambiar ratio del carrusel (aplica a todas)">
-          <svg class="i" viewBox="0 0 24 24" fill="none">
-            <path d="M4 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M20 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M20 9a8 8 0 0 0-14.9-3M4 15a8 8 0 0 0 14.9 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          Cambiar ratio…
-        </button>
-      </div>
+  <section class="card centerCol" style="border:none; background:transparent; box-shadow:none; overflow:hidden">
+    <div class="editorToolbar">
+        <div style="display:flex; align-items:center; gap:12px">
+            <div class="kpi" style="margin:0; background:transparent; padding:0">
+                <span class="label">Ratio Actual</span>
+                <strong id="ratioLabel" style="font-size:13px">1:1</strong>
+                <small id="ratioMode" style="color:var(--text-dim); margin-left:4px">(Libre)</small>
+            </div>
+        </div>
+        <button class="btn" id="changeRatio" style="height:26px; font-size:11px">Configurar Todo</button>
     </div>
 
     <div class="editorWrap">
       <div class="editorTop">
         <div class="toolGroup">
           <span class="label">Ratios</span>
-          <button class="btn" data-r="1">1:1</button>
-          <button class="btn" data-r="4/5">4:5</button>
-          <button class="btn" data-r="9/16">9:16</button>
-          <button class="btn" data-r="1.91">1.91:1</button>
-          <button class="btn" data-r="3/2">3:2</button>
-          <button class="btn" data-r="4/3">4:3</button>
+          <button class="btn" data-r="1" style="padding:0 8px">1:1</button>
+          <button class="btn" data-r="4/5" style="padding:0 8px">4:5</button>
+          <button class="btn" data-r="9/16" style="padding:0 8px">9:16</button>
+          <button class="btn" data-r="3/2" style="padding:0 8px">3:2</button>
+          <button class="btn" data-r="4/3" style="padding:0 8px">4:3</button>
         </div>
 
+        <div class="toolGroup" style="margin-left:auto; margin-right:8px">
+            <button class="btn" id="rotL" title="Rotar izq" style="padding:0 8px">⟲</button>
+            <button class="btn" id="rotR" title="Rotar der" style="padding:0 8px">⟳</button>
+            <button class="btn" id="zoomOut" title="Zoom -" style="padding:0 8px">−</button>
+            <button class="btn" id="zoomIn" title="Zoom +" style="padding:0 8px">+</button>
+        </div>
+        
         <div class="toolGroup">
-          <span class="label">Ajustes</span>
-          <button class="btn" id="zoomIn">
-            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M11 8v6m-3-3h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/></svg>
-            Zoom +
-          </button>
-          <button class="btn" id="zoomOut">
-            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M8 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/></svg>
-            Zoom −
-          </button>
-          <button class="btn" id="rotL">⟲ Rotar</button>
-          <button class="btn" id="rotR">⟳ Rotar</button>
-          <button class="btn" id="reset">
-            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            Reset
-          </button>
-          <button class="btn ok" id="saveCrop">
-            <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 0 1-2-2V7l4-4h10l4 4v12a2 2 0 0 1-2 2Z" stroke="currentColor" stroke-width="2"/><path d="M7 21v-8h10v8" stroke="currentColor" stroke-width="2"/><path d="M8 3v4h8V3" stroke="currentColor" stroke-width="2"/></svg>
-            Guardar recorte
-          </button>
+            <button class="btn" id="reset">Reset</button>
+            <button class="btn primary" id="saveCrop">Guardar</button>
         </div>
       </div>
 
@@ -676,134 +599,124 @@
     </div>
   </section>
 
-  <!-- RIGHT -->
   <section class="card">
     <div class="cardTop">
       <div class="cardTitle">
-        <h2>Vista previa</h2>
-        <p>Simulación del encuadre actual</p>
-      </div>
-      <div class="row">
-        <button class="btn" id="dlOne" title="Descargar seleccionada">
-          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M12 3v10m0 0l4-4m-4 4l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          Descargar
-        </button>
-        <button class="btn primary" id="dlZip" title="Descargar ZIP">
-          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M6 3h12v18H6z" stroke="currentColor" stroke-width="2"/><path d="M9 7h6M9 11h6M9 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          ZIP
-        </button>
+        <h2>Vista Previa</h2>
       </div>
     </div>
 
-    <div class="cardBody">
+    <div class="cardBody previewBody">
       <div class="feed">
         <div class="feedHead">
           <div class="avatar"></div>
-          <div class="lines"><div class="line a"></div><div class="line b"></div></div>
+          <div>
+            <div style="height:8px; width:80px; background:#333; border-radius:4px; margin-bottom:4px"></div>
+            <div style="height:6px; width:50px; background:#222; border-radius:4px"></div>
+          </div>
         </div>
 
         <div class="media" id="media">
           <img id="preview" alt="">
           <div class="nav">
-            <button id="pPrev" aria-label="prev">‹</button>
-            <button id="pNext" aria-label="next">›</button>
+            <button id="pPrev">‹</button>
+            <button id="pNext">›</button>
           </div>
           <div class="dots" id="dots"></div>
         </div>
 
         <div class="feedFoot">
-          <div class="line a" style="width:130px"></div>
+             <div style="display:flex; gap:10px">
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+             </div>
         </div>
       </div>
 
-      <div style="height:12px"></div>
-
-      <div class="kpi" style="justify-content:space-between; gap:12px; flex-wrap:wrap">
-        <div class="row" style="gap:8px">
-          <span class="label">Tamaño</span>
-          <select class="select" id="size">
-            <option value="1080" selected>1080px</option>
-            <option value="2160">2160px</option>
-          </select>
-        </div>
-
-        <div class="row" style="gap:8px">
-          <span class="label">Formato</span>
-          <select class="select" id="fmt">
-            <option value="jpeg" selected>JPG</option>
-            <option value="png">PNG</option>
-          </select>
-        </div>
-
-        <div class="row" style="gap:8px">
-          <span class="label">Calidad</span>
-          <input id="q" type="range" min="0.80" max="1.00" step="0.01" value="0.95">
-          <strong id="qVal" style="font-size:12px">0.95</strong>
-        </div>
+      <div class="captionArea">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px">
+            <label class="label">Texto para el post</label>
+            <span id="charCount" style="font-size:10px; color:var(--text-dim)">0 / 2200</span>
+          </div>
+          <textarea id="captionText" class="captionInput" placeholder="Escribe aquí tu copy..."></textarea>
       </div>
 
-      <div style="height:10px"></div>
+      <div class="exportSection">
+          <h3 style="font-size:11px; text-transform:uppercase; color:var(--text-dim); margin:0 0 8px 0;">Exportar</h3>
+          
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:8px">
+              <div>
+                  <label class="label">Tamaño</label>
+                  <select class="select" id="size" style="width:100%">
+                    <option value="1080" selected>1080px</option>
+                    <option value="2160">2160px (Hi-Res)</option>
+                  </select>
+              </div>
+              <div>
+                  <label class="label">Formato</label>
+                  <select class="select" id="fmt" style="width:100%">
+                    <option value="jpeg" selected>JPG</option>
+                    <option value="png">PNG</option>
+                  </select>
+              </div>
+          </div>
+          
+          <div style="margin-bottom:12px">
+             <div style="display:flex; justify-content:space-between;">
+                 <label class="label">Calidad</label>
+                 <strong id="qVal" style="font-size:10px">0.95</strong>
+             </div>
+             <input id="q" type="range" min="0.80" max="1.00" step="0.01" value="0.95" style="width:100%">
+          </div>
 
-      <div class="row">
-        <button class="btn" id="exportCrop" title="Exporta recortando al ratio elegido">
-          <svg class="i" viewBox="0 0 24 24" fill="none"><path d="M6 2v4H2v2h4v10a2 2 0 0 0 2 2h10v-2H8V8h10V6H8V2H6Z" fill="currentColor"/></svg>
-          Exportar (recorte IG)
-        </button>
-      </div>
-
-      <div style="margin-top:10px;font-size:12px;color:rgba(168,178,199,.95);line-height:1.4;text-align:left">
-        Tip: si no guardas recorte, el ZIP usa un recorte centrado automático al ratio.
+          <div style="display:flex; flex-direction:column; gap:6px">
+              <button class="btn primary" id="dlZip" style="height:38px; width:100%">
+                Descargar Todo (ZIP)
+              </button>
+              
+              <div style="display:flex; gap:6px">
+                 <button class="btn" id="dlOne" style="flex:1">Esta foto</button>
+                 <button class="btn" id="exportCrop" title="Recorte exacto" style="width:36px; padding:0">✂</button>
+              </div>
+          </div>
       </div>
     </div>
   </section>
 </main>
 
-<!-- Storyboard -->
 <div class="stripWrap">
-  <section class="card">
-    <div class="cardTop">
-      <div class="cardTitle">
-        <h2>Storyboard</h2>
-        <p>Arrastra para reordenar • clic para seleccionar</p>
-      </div>
-      <div class="kpi">
-        <span>Salida:</span> <strong>01 → 02 → 03…</strong>
-      </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+        <h3 style="font-size:11px; margin:0; color:var(--text-muted)">STORYBOARD</h3>
     </div>
-    <div class="strip" id="strip"></div>
-  </section>
+    <div class="card" style="border-radius: var(--radius-lg); background:var(--surface-2)">
+        <div class="strip" id="strip"></div>
+    </div>
 </div>
 
-<!-- Toasts -->
-<div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
-
-<!-- Modal: Change ratio -->
-<div class="modalOverlay" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+<div class="modalOverlay" id="modalOverlay">
   <div class="modal">
     <div class="modalTop">
-      <b id="modalTitle">Cambiar ratio del carrusel</b>
-      <button class="btn bad" id="modalClose" title="Cerrar">Cerrar</button>
+      <b id="modalTitle">Ratio Global</b>
+      <button class="btn" id="modalClose" style="border:none; background:transparent; padding:0; width:24px;">✕</button>
     </div>
     <div class="modalBody">
-      <p>
-        Instagram fuerza el carrusel a un único ratio. Si lo cambias aquí, se aplicará a todo el carrusel y
-        se limpiarán los recortes guardados para evitar formatos mezclados.
+      <p style="color:var(--text-muted); margin-bottom:12px; font-size:13px">
+        Aplica un formato único a todas las imágenes.
       </p>
-      <div class="row" style="gap:10px">
-        <span class="label">Nuevo ratio</span>
-        <select class="select" id="modalRatio">
-          <option value="1:1">1:1</option>
-          <option value="4:5">4:5</option>
-          <option value="9:16">9:16</option>
-          <option value="1.91:1">1.91:1</option>
-          <option value="3:2">3:2</option>
-          <option value="4:3">4:3</option>
+      <div style="display:flex; flex-direction:column; gap:6px">
+        <select class="select" id="modalRatio" style="width:100%">
+          <option value="1:1">1:1 (Cuadrado)</option>
+          <option value="4:5">4:5 (Retrato)</option>
+          <option value="9:16">9:16 (Story)</option>
+          <option value="3:2">3:2 (Horizontal)</option>
+          <option value="4:3">4:3 (Estándar)</option>
+          <option value="1.91:1">1.91:1 (Banner)</option>
         </select>
       </div>
     </div>
     <div class="modalActions">
       <button class="btn" id="modalCancel">Cancelar</button>
-      <button class="btn primary" id="modalApply">Aplicar a todo</button>
+      <button class="btn primary" id="modalApply">Aplicar</button>
     </div>
   </div>
 </div>
@@ -812,6 +725,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
+  // Elementos
   const files = $('files');
   const list = $('list');
   const strip = $('strip');
@@ -847,14 +761,17 @@
   const dlZip = $('dlZip');
   const exportCropBtn = $('exportCrop');
 
+  // Caption
+  const captionText = $('captionText');
+  const charCount = $('charCount');
+
   const countEl = $('count');
   const selNameEl = $('selName');
   const ratioLabel = $('ratioLabel');
   const ratioMode = $('ratioMode');
 
   const dropzone = $('dropzone');
-  const openPicker = $('openPicker');
-  const toasts = $('toasts');
+  const headerMsg = $('headerMsg'); 
   const empty = $('empty');
 
   // Modal
@@ -865,49 +782,41 @@
   const modalApply = $('modalApply');
   const modalRatio = $('modalRatio');
 
+  // Config Ratios
   const RATIOS = [
     { key:'1:1', value:1,      out:(s)=>({w:s,h:s}) },
     { key:'4:5', value:4/5,    out:(s)=>({w:s,h: Math.round(s*5/4)}) },
     { key:'9:16', value:9/16,  out:(s)=>({w:s,h: Math.round(s*16/9)}) },
-    { key:'1.91:1', value:1.91,out:(s)=>({w:s,h: Math.round(s/1.91)}) },
     { key:'3:2', value:3/2,    out:(s)=>({w:s,h: Math.round(s*2/3)}) },
     { key:'4:3', value:4/3,    out:(s)=>({w:s,h: Math.round(s*3/4)}) },
+    { key:'1.91:1', value:1.91,out:(s)=>({w:s,h: Math.round(s/1.91)}) },
   ];
   const keyFromValue = (v) => RATIOS.map(r=>({k:r.key,d:Math.abs(r.value-v)})).sort((a,b)=>a.d-b.d)[0]?.k || '1:1';
   const valueFromKey = (k) => RATIOS.find(r=>r.key===k)?.value ?? 1;
   const outDims = (k, base) => (RATIOS.find(r=>r.key===k)?.out ?? ((s)=>({w:s,h:s})))(base);
 
-  let items = []; // {name,url, ratioKey, cropData, thumbDataUrl}
+  // Estado
+  let items = []; 
   let selected = -1;
   let cropper = null;
   let currentRatio = 1;
   let dragFrom = null;
   let busyZip = false;
-
-  // Ratio global del carrusel (cuando se fija, se bloquean ratios por foto)
   let carouselRatioKey = null;
+  let toastTimer = null;
 
-  // Bloquear rueda/trackpad en editor
   editorCanvas.addEventListener('wheel', (e) => e.preventDefault(), { passive:false });
 
   const pad2 = (n)=> String(n).padStart(2,'0');
 
   function toast(type, title, msg){
-    const el = document.createElement('div');
-    el.className = 'toast';
-    const dot = document.createElement('div');
-    dot.className = 'tDot ' + (type || '');
-    const txt = document.createElement('div');
-    txt.className = 'tTxt';
-    const b = document.createElement('b');
-    b.textContent = title || 'Listo';
-    const s = document.createElement('span');
-    s.textContent = msg || '';
-    txt.appendChild(b); txt.appendChild(s);
-    el.appendChild(dot); el.appendChild(txt);
-    toasts.appendChild(el);
-    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(6px)'; }, 2400);
-    setTimeout(()=>{ el.remove(); }, 2800);
+    if(toastTimer) clearTimeout(toastTimer);
+    headerMsg.className = type || 'info';
+    headerMsg.textContent = `${title} ${msg ? '— ' + msg : ''}`;
+    headerMsg.style.opacity = '1';
+    toastTimer = setTimeout(()=>{
+      headerMsg.style.opacity = '0';
+    }, 3000);
   }
 
   function destroyCropper(){
@@ -928,7 +837,7 @@
   }
 
   function updateRatioModeUI(){
-    ratioMode.textContent = carouselRatioKey ? `Carrusel (bloqueado)` : `Libre`;
+    ratioMode.textContent = carouselRatioKey ? `(Bloqueado)` : `(Libre)`;
     changeRatioBtn.disabled = items.length===0;
   }
 
@@ -936,28 +845,23 @@
     if(!carouselRatioKey){
       carouselRatioKey = ratioKey;
       updateRatioModeUI();
-      toast('ok','Ratio del carrusel fijado', `${carouselRatioKey} para todas las imágenes.`);
+      toast('ok','Ratio fijado', `${carouselRatioKey} para todas.`);
     }
   }
 
   function applyCarouselRatio(ratioKey){
     carouselRatioKey = ratioKey;
     currentRatio = valueFromKey(carouselRatioKey);
-
-    // Limpia recortes para evitar mezclas
     items.forEach(it => {
       it.ratioKey = null;
       it.cropData = null;
       it.thumbDataUrl = null;
     });
-
     updateRatioModeUI();
     renderAll();
-
     if(selected>=0){
-      // Reabrir cropper con ratio nuevo
       select(selected);
-      toast('ok', 'Ratio aplicado', `Todo el carrusel ahora está en ${carouselRatioKey}.`);
+      toast('ok', 'Ratio aplicado', `Todo en ${carouselRatioKey}.`);
     } else {
       toast('ok', 'Ratio aplicado', `Carrusel en ${carouselRatioKey}.`);
     }
@@ -982,13 +886,11 @@
     }
 
     if(selected===-1) selected = 0;
-
     renderAll();
     select(selected);
     updatePreview();
     toggleEmpty();
-
-    toast('ok', 'Fotos añadidas', `${fs.length} archivo(s) listos para recortar.`);
+    toast('ok', 'Fotos añadidas', `${fs.length} archivo(s).`);
   }
 
   function updateHeader(){
@@ -1000,25 +902,18 @@
   function setDisabled(){
     const has = items.length>0;
     const sel = selected>=0 && selected<items.length;
-
     [prevBtn,nextBtn,pPrev,pNext].forEach(b=> b.disabled = (items.length<=1));
     moveUp.disabled = !sel || selected===0;
     moveDown.disabled = !sel || selected===items.length-1;
-
     dlZip.disabled = !has || busyZip;
     dlOne.disabled = !sel;
     exportCropBtn.disabled = !sel;
-
     [saveCrop,zoomIn,zoomOut,rotL,rotR,reset].forEach(b=> b.disabled = !sel);
-
     clearAll.disabled = !has;
-
-    // Bloqueo de ratios cuando hay ratio global
     const ratiosLocked = !!carouselRatioKey;
     document.querySelectorAll('[data-r]').forEach(b => {
       b.disabled = !sel || ratiosLocked;
     });
-
     changeRatioBtn.disabled = !has;
   }
 
@@ -1027,44 +922,40 @@
     items.forEach((it, i) => {
       const row = document.createElement('div');
       row.className = 'item' + (i===selected ? ' active':'');
-
       const th = document.createElement('div');
       th.className = 'thumb';
       const ti = document.createElement('img');
       ti.src = it.thumbDataUrl || it.url;
       th.appendChild(ti);
-
       const meta = document.createElement('div');
       meta.className = 'meta';
+      meta.style.display = 'flex';
+      meta.style.flexDirection = 'column';
+      meta.style.justifyContent = 'center';
+      meta.style.overflow = 'hidden';
       const n = document.createElement('div');
       n.className = 'name';
-      n.textContent = `${pad2(i+1)} · ` + (it.name || `IMG_${pad2(i+1)}`);
-
+      n.textContent = `${pad2(i+1)}. ` + (it.name || `Imagen ${pad2(i+1)}`);
       const s = document.createElement('div');
       const shownRatio = carouselRatioKey || it.ratioKey;
       if(items.length && carouselRatioKey && it.ratioKey && it.ratioKey !== carouselRatioKey){
         s.className = 'sub warn';
-        s.textContent = `⚠ Ratio distinto (${it.ratioKey}) — carrusel: ${carouselRatioKey}`;
+        s.textContent = `⚠ ${it.ratioKey}`;
       } else {
         s.className = 'sub';
-        s.textContent = shownRatio ? `Ratio carrusel: ${shownRatio}` : 'Sin recorte guardado (centrado automático)';
+        s.textContent = shownRatio ? `${shownRatio}` : 'Auto';
       }
-
       meta.appendChild(n); meta.appendChild(s);
-
       const del = document.createElement('button');
       del.className = 'iconMini';
-      del.title = 'Eliminar';
-      del.textContent = '✕';
+      del.innerHTML = '✕';
       del.addEventListener('click', (e) => { e.stopPropagation(); remove(i); });
-
       row.appendChild(th);
       row.appendChild(meta);
       row.appendChild(del);
       row.addEventListener('click', ()=> select(i));
       list.appendChild(row);
     });
-
     updateHeader();
     setDisabled();
   }
@@ -1072,56 +963,41 @@
   function renderStrip(){
     strip.innerHTML = '';
     if(items.length===0) return;
-
     items.forEach((it, i) => {
       const ratioKey = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
       const r = valueFromKey(ratioKey);
-
       const frame = document.createElement('div');
       frame.className = 'frame' + (i===selected ? ' active':'');
-
       frame.draggable = true;
       frame.dataset.index = String(i);
-
-      const W = 140;
-      const H = Math.max(60, Math.round(W / r));
+      const W = 80; 
+      const H = Math.max(40, Math.round(W / r));
       frame.style.height = H + 'px';
-
+      frame.style.width = W + 'px';
       const im = document.createElement('img');
-      im.className = 'frameImg';
       im.src = it.thumbDataUrl || it.url;
-
+      im.style.width='100%'; im.style.height='100%'; im.style.objectFit='cover'; im.style.display='block';
       const b1 = document.createElement('div');
       b1.className = 'badge';
       b1.textContent = pad2(i+1);
-
-      const b2 = document.createElement('div');
-      b2.className = 'badge2';
-      b2.textContent = ratioKey;
-
       frame.addEventListener('click', ()=> select(i));
-
       frame.addEventListener('dragstart', (e)=>{
         dragFrom = i;
         frame.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
         try { e.dataTransfer.setData('text/plain', String(i)); } catch {}
       });
-
       frame.addEventListener('dragend', ()=>{
         dragFrom = null;
         frame.classList.remove('dragging');
         strip.querySelectorAll('.frame.over').forEach(el=> el.classList.remove('over'));
       });
-
       frame.addEventListener('dragover', (e)=>{
         e.preventDefault();
         frame.classList.add('over');
         e.dataTransfer.dropEffect = 'move';
       });
-
       frame.addEventListener('dragleave', ()=> frame.classList.remove('over'));
-
       frame.addEventListener('drop', (e)=>{
         e.preventDefault();
         frame.classList.remove('over');
@@ -1129,12 +1005,10 @@
         const to = i;
         if(!Number.isFinite(from) || from===to) return;
         reorder(from, to);
-        toast('', 'Orden actualizado', `Nueva posición: ${pad2(to+1)}.`);
+        toast('', 'Movido', `a posición ${pad2(to+1)}.`);
       });
-
       frame.appendChild(im);
       frame.appendChild(b1);
-      frame.appendChild(b2);
       strip.appendChild(frame);
     });
   }
@@ -1150,11 +1024,9 @@
     if(from<0 || to<0 || from>=items.length || to>=items.length) return;
     const moved = items.splice(from, 1)[0];
     items.splice(to, 0, moved);
-
     if(selected === from) selected = to;
     else if(from < selected && selected <= to) selected -= 1;
     else if(to <= selected && selected < from) selected += 1;
-
     renderAll();
     updatePreview();
   }
@@ -1164,7 +1036,6 @@
     const name = items[i]?.name || `IMG_${pad2(i+1)}`;
     URL.revokeObjectURL(items[i].url);
     items.splice(i,1);
-
     if(items.length===0){
       selected=-1;
       destroyCropper();
@@ -1172,10 +1043,12 @@
       dots.innerHTML='';
       img.src='';
       ratioLabel.textContent = '1:1';
-      carouselRatioKey = null; // reset global
+      captionText.value = '';
+      charCount.textContent = '0 / 2200';
+      carouselRatioKey = null;
       currentRatio = 1;
       renderAll();
-      toast('warn', 'Todo vacío', 'Vuelve a añadir fotos para empezar.');
+      toast('warn', 'Vacío', 'Sube fotos.');
       return;
     }
     selected = Math.min(selected, items.length-1);
@@ -1185,10 +1058,27 @@
     toast('bad', 'Eliminada', name);
   }
 
+  function syncPreviewRealTime() {
+    if(!cropper) return;
+    const canvas = cropper.getCroppedCanvas({
+        width: 400,
+        imageSmoothingQuality: 'medium'
+    });
+    if(!canvas) return;
+    preview.src = canvas.toDataURL('image/jpeg', 0.8);
+    
+    const feedContainer = document.querySelector('.feed');
+    if(feedContainer) {
+        const w = feedContainer.clientWidth;
+        const aspect = canvas.width / canvas.height;
+        media.style.height = Math.round(w / aspect) + 'px';
+    }
+  }
+
   function initCropper(){
     destroyCropper();
     cropper = new Cropper(img, {
-      viewMode: 1,
+      viewMode: 1, 
       dragMode: 'move',
       autoCropArea: 1,
       background: false,
@@ -1199,28 +1089,27 @@
       scalable: false,
       cropBoxMovable: true,
       cropBoxResizable: true,
-      responsive: false,
-      aspectRatio: currentRatio || NaN
+      responsive: true,
+      checkCrossOrigin: false,
+      aspectRatio: currentRatio || NaN,
+      
+      ready: function() { syncPreviewRealTime(); },
+      cropend: function() { syncPreviewRealTime(); },
+      zoom: function() { setTimeout(syncPreviewRealTime, 100); }
     });
   }
 
   function select(i){
     if(i<0||i>=items.length) return;
     selected = i;
-
-    // Si hay ratio global, fuerza currentRatio a ese valor
     if(carouselRatioKey){
       currentRatio = valueFromKey(carouselRatioKey);
     }
-
     const it = items[selected];
     ratioLabel.textContent = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
-
     img.src = it.url;
     img.onload = () => {
       initCropper();
-
-      // Si hay ratio global, siempre ese
       if(carouselRatioKey){
         cropper.setAspectRatio(currentRatio);
       } else if(it.ratioKey){
@@ -1229,10 +1118,10 @@
       } else {
         cropper.setAspectRatio(currentRatio);
       }
-
       if(it.cropData) cropper.setData(it.cropData);
+      
+      setTimeout(syncPreviewRealTime, 50);
     };
-
     renderAll();
     updatePreview();
   }
@@ -1261,56 +1150,55 @@
 
   function updatePreview(){
     if(items.length===0 || selected<0) { setDisabled(); return; }
-
-    const it = items[selected];
-    const ratioKey = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
-    const r = valueFromKey(ratioKey);
-
-    const w = media.clientWidth || 320;
-    media.style.height = Math.round(w / r) + 'px';
-
-    preview.src = it.thumbDataUrl || it.url;
-
+    if(cropper) {
+        syncPreviewRealTime();
+    } else {
+        const it = items[selected];
+        const ratioKey = carouselRatioKey || keyFromValue(currentRatio);
+        const r = valueFromKey(ratioKey);
+        const feedContainer = document.querySelector('.feed');
+        const w = feedContainer ? feedContainer.clientWidth : 320;
+        media.style.height = Math.round(w / r) + 'px';
+        preview.src = it.thumbDataUrl || it.url;
+    }
+    const ratioKey = carouselRatioKey || keyFromValue(currentRatio);
     ratioLabel.textContent = ratioKey;
     buildDots();
     setDisabled();
-
     renderStrip();
     renderList();
   }
-
-  new ResizeObserver(() => updatePreview()).observe(media);
+  
+  const feedContainer = document.querySelector('.feed');
+  if(feedContainer) {
+      new ResizeObserver(() => {
+          if(cropper) syncPreviewRealTime();
+          else requestAnimationFrame(updatePreview);
+      }).observe(feedContainer);
+  }
 
   async function saveCurrentCrop(){
     const it = items[selected];
     if(!it || !cropper) return;
-
-    // Si aún no hay ratio global, el primer guardado lo fija
     if(!carouselRatioKey){
       const rk = keyFromValue(currentRatio);
       lockCarouselRatioIfNeeded(rk);
       currentRatio = valueFromKey(carouselRatioKey);
       cropper.setAspectRatio(currentRatio);
     }
-
-    // Guarda SIEMPRE con ratio global
     it.cropData = cropper.getData(true);
     it.ratioKey = carouselRatioKey;
-
     const pr = valueFromKey(it.ratioKey);
     const thW = 540;
     const thH = Math.max(1, Math.round(thW / pr));
     const c = cropper.getCroppedCanvas({
-      width: thW,
-      height: thH,
-      imageSmoothingEnabled: true,
-      imageSmoothingQuality: 'high'
+      width: thW, height: thH,
+      imageSmoothingEnabled: true, imageSmoothingQuality: 'high'
     });
     it.thumbDataUrl = c.toDataURL('image/jpeg', 0.9);
-
     renderAll();
     updatePreview();
-    toast('ok', 'Recorte guardado', `${it.ratioKey} • carrusel bloqueado.`);
+    toast('ok', 'Guardado', `${it.ratioKey}`);
   }
 
   function dataURLToBlob(dataURL){
@@ -1331,10 +1219,7 @@
   }
 
   function baseName(name){
-    return (name||'image')
-      .replace(/\.[a-z0-9]+$/i,'')
-      .replace(/[^\w\-]+/g,'_')
-      .slice(0,80);
+    return (name||'image').replace(/\.[a-z0-9]+$/i,'').replace(/[^\w\-]+/g,'_').slice(0,80);
   }
 
   async function imageFromUrl(url){
@@ -1350,12 +1235,10 @@
     const format = fmt.value;
     const base = parseInt(sizeEl.value,10);
     const quality = parseFloat(q.value);
-
     const ratioKey = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
     const {w:W,h:H} = outDims(ratioKey, base);
 
     if(it === items[selected] && cropper){
-      // Asegura ratio del carrusel
       if(carouselRatioKey) cropper.setAspectRatio(valueFromKey(carouselRatioKey));
       const c = cropper.getCroppedCanvas({
         width: W, height: H,
@@ -1396,33 +1279,29 @@
   async function downloadSelectedRecorte(){
     if(selected<0) return;
     if(cropper) await saveCurrentCrop();
-
     const it = items[selected];
     const dataUrl = await exportRecorteToDataURL(it);
     const blob = dataURLToBlob(dataUrl);
-
     const ext = fmt.value==='png'?'png':'jpg';
     const base = parseInt(sizeEl.value,10);
     const rk = (carouselRatioKey || it.ratioKey || keyFromValue(currentRatio)).replace(':','x').replace('.','_');
     const prefix = pad2(selected+1);
-
     downloadBlob(blob, `${prefix}__${baseName(it.name)}__IG_${rk}__${base}.${ext}`);
-    toast('ok', 'Descargada', `${prefix} • ${carouselRatioKey || it.ratioKey || keyFromValue(currentRatio)}`);
+    toast('ok', 'Descargada', `${prefix}`);
   }
 
   async function downloadZIP(){
     if(items.length===0 || busyZip) return;
     if(selected>=0 && cropper) await saveCurrentCrop();
-
     busyZip = true;
     setDisabled();
-    toast('', 'Creando ZIP', 'Exportando todas las fotos…');
-
+    toast('', 'Procesando ZIP', '...');
     const zip = new JSZip();
     const ext = fmt.value==='png'?'png':'jpg';
     const base = parseInt(sizeEl.value,10);
     const rkGlobal = carouselRatioKey || keyFromValue(currentRatio);
 
+    // Imágenes
     for(let i=0;i<items.length;i++){
       const it = items[i];
       const dataUrl = await exportRecorteToDataURL(it);
@@ -1430,22 +1309,32 @@
       const rk = (rkGlobal).replace(':','x').replace('.','_');
       zip.file(`${pad2(i+1)}__${baseName(it.name)}__IG_${rk}__${base}.${ext}`, blob);
     }
+    
+    // Caption TXT
+    const txtContent = captionText.value.trim();
+    if(txtContent) {
+        zip.file("caption.txt", txtContent);
+    }
 
     const out = await zip.generateAsync({type:'blob'});
     downloadBlob(out, `caruselforge_${base}px_${(rkGlobal).replace(':','x').replace('.','_')}.zip`);
-
     busyZip = false;
     setDisabled();
-    toast('ok', 'ZIP listo', `Incluye ${items.length} foto(s) en orden.`);
+    toast('ok', 'ZIP Listo', `Descarga finalizada.`);
   }
 
-  // Events
-  files.addEventListener('change', (e)=> addFiles(e.target.files));
-  openPicker.addEventListener('click', ()=> files.click());
+  // Event Listeners
+  captionText.addEventListener('input', () => {
+      const len = captionText.value.length;
+      charCount.textContent = `${len} / 2200`;
+      if(len > 2200) charCount.style.color = 'var(--danger)';
+      else charCount.style.color = 'var(--text-dim)';
+  });
 
+  files.addEventListener('change', (e)=> addFiles(e.target.files));
+  
   clearAll.addEventListener('click', ()=>{
     if(items.length && !confirm('¿Vaciar todo el carrusel?')) return;
-
     destroyCropper();
     items.forEach(it => it.url && URL.revokeObjectURL(it.url));
     items=[]; selected=-1;
@@ -1453,21 +1342,23 @@
     preview.src=''; dots.innerHTML='';
     img.src='';
     ratioLabel.textContent = '1:1';
+    captionText.value = '';
+    charCount.textContent = '0 / 2200';
     carouselRatioKey = null;
     currentRatio = 1;
-
     qVal.textContent = Number(q.value).toFixed(2);
     updateHeader();
     setDisabled();
     toggleEmpty();
     updateRatioModeUI();
-    toast('warn', 'Vaciado', 'El carrusel se ha reiniciado.');
+    toast('warn', 'Reinicio', 'Carrusel vaciado.');
   });
 
   [prevBtn,pPrev].forEach(b=> b.addEventListener('click', ()=> moveSelection(-1)));
   [nextBtn,pNext].forEach(b=> b.addEventListener('click', ()=> moveSelection(+1)));
 
   window.addEventListener('keydown', (e)=>{
+    if(e.target === captionText) return; // No atajos si escribes
     if(e.key==='ArrowLeft') moveSelection(-1);
     if(e.key==='ArrowRight') moveSelection(+1);
     if(e.key==='Escape' && modalOverlay.style.display==='flex') closeModal();
@@ -1479,33 +1370,33 @@
   document.querySelectorAll('[data-r]').forEach(b=>{
     b.addEventListener('click', ()=> {
       if(carouselRatioKey){
-        toast('warn','Ratio bloqueado', `El carrusel está fijado en ${carouselRatioKey}. Usa “Cambiar ratio…”`);
+        toast('warn','Bloqueado', `Usa "Configurar Todo" para cambiar.`);
         return;
       }
       let r = 1;
       try { r = Function(`"use strict"; return (${b.getAttribute('data-r')});`)(); } catch {}
       currentRatio = r;
       ratioLabel.textContent = keyFromValue(r);
-      if(cropper) cropper.setAspectRatio(currentRatio);
-      updatePreview();
-      toast('', 'Ratio', `Ahora: ${keyFromValue(r)}`);
+      if(cropper) {
+          cropper.setAspectRatio(currentRatio);
+          setTimeout(syncPreviewRealTime, 50);
+      }
+      toast('', 'Ratio Libre', `${keyFromValue(r)}`);
     });
   });
 
-  zoomIn.addEventListener('click', ()=> cropper?.zoom(0.08));
-  zoomOut.addEventListener('click', ()=> cropper?.zoom(-0.08));
-  rotL.addEventListener('click', ()=> cropper?.rotate(-90));
-  rotR.addEventListener('click', ()=> cropper?.rotate(90));
-  reset.addEventListener('click', ()=> cropper?.reset());
+  zoomIn.addEventListener('click', ()=> { cropper?.zoom(0.08); setTimeout(syncPreviewRealTime,50); });
+  zoomOut.addEventListener('click', ()=> { cropper?.zoom(-0.08); setTimeout(syncPreviewRealTime,50); });
+  rotL.addEventListener('click', ()=> { cropper?.rotate(-90); setTimeout(syncPreviewRealTime,50); });
+  rotR.addEventListener('click', ()=> { cropper?.rotate(90); setTimeout(syncPreviewRealTime,50); });
+  reset.addEventListener('click', ()=> { cropper?.reset(); setTimeout(syncPreviewRealTime,50); });
+  
   saveCrop.addEventListener('click', saveCurrentCrop);
-
   q.addEventListener('input', ()=> qVal.textContent = Number(q.value).toFixed(2));
-
   dlOne.addEventListener('click', downloadSelectedRecorte);
   exportCropBtn.addEventListener('click', downloadSelectedRecorte);
   dlZip.addEventListener('click', downloadZIP);
 
-  // Dropzone UX
   const stop = (e)=>{ e.preventDefault(); e.stopPropagation(); };
   ['dragenter','dragover'].forEach(ev=>{
     dropzone.addEventListener(ev, (e)=>{ stop(e); dropzone.classList.add('drag'); });
@@ -1518,7 +1409,6 @@
     if(dt?.files?.length) addFiles(dt.files);
   });
 
-  // Modal events
   changeRatioBtn.addEventListener('click', () => {
     if(items.length===0) return;
     openModal();
@@ -1530,12 +1420,11 @@
   });
   modalApply.addEventListener('click', () => {
     const newKey = modalRatio.value;
-    if(items.length && !confirm(`¿Aplicar ${newKey} a todo el carrusel? Se limpiarán recortes guardados.`)) return;
+    if(items.length && !confirm(`¿Aplicar ${newKey} a todo? Se perderán ajustes manuales.`)) return;
     applyCarouselRatio(newKey);
     closeModal();
   });
 
-  // Init
   qVal.textContent = Number(q.value).toFixed(2);
   setDisabled();
   updateHeader();
