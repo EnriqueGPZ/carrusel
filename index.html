@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CaruselForge | Editor Profesional</title>
+  <title>CaruselForge | Editor & AI</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -432,13 +432,25 @@
       border-radius: var(--radius-lg);
       box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
       overflow: hidden;
+      display: flex; flex-direction: column;
+      max-height: 90vh;
     }
     .modalTop {
       padding: 14px; border-bottom: 1px solid var(--border);
       display: flex; justify-content: space-between; align-items: center;
+      flex: 0 0 auto;
     }
-    .modalBody { padding: 16px; }
-    .modalActions { padding: 14px; background: var(--surface-2); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+    .modalBody { padding: 16px; overflow-y: auto; flex: 1; min-height: 0; }
+    .modalActions { padding: 14px; background: var(--surface-2); border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
+
+    /* Help Text Styles */
+    .helpBlock { margin-bottom: 16px; border-bottom: 1px solid var(--surface-3); padding-bottom: 16px; }
+    .helpBlock:last-child { border-bottom: none; }
+    .helpBlock h4 { margin: 0 0 8px; color: var(--primary); font-size: 13px; font-weight: 700; text-transform: uppercase; }
+    .helpBlock p { margin: 0 0 8px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+    .helpBlock ul, .helpBlock ol { margin: 0 0 8px; padding-left: 20px; color: var(--text-muted); font-size: 13px; }
+    .helpBlock li { margin-bottom: 4px; }
+    .codeBox { background: #000; padding: 8px; border-radius: 4px; font-family: monospace; color: #a5b4fc; word-break: break-all; font-size: 12px; }
 
     /* --- Utility Icons (SVG) --- */
     .i { width: 14px; height: 14px; display: inline-block; vertical-align: middle; }
@@ -480,6 +492,7 @@
   <div id="headerMsg"></div>
 
   <div class="topActions">
+    <button class="btn" id="helpBtn" title="Instrucciones">Ayuda</button>
     <button class="btn" id="aiSettings" title="Configurar API Key">⚙️ AI</button>
     <button class="btn bad" id="clearAll" title="Vaciar todo">Vaciar</button>
   </div>
@@ -700,6 +713,52 @@
   </div>
 </div>
 
+<div class="modalOverlay" id="helpOverlay" style="z-index:210">
+  <div class="modal" style="width:600px; max-width:95%">
+    <div class="modalTop">
+      <b>📚 Instrucciones & API Guide</b>
+      <button class="btn" id="helpCloseBtn" style="border:none; background:transparent; padding:0; width:24px;">✕</button>
+    </div>
+    <div class="modalBody">
+      <div class="helpBlock">
+        <h4>1. Flujo de Trabajo</h4>
+        <ul>
+            <li><b>Sube imágenes:</b> Arrastra archivos o usa el botón "Añadir".</li>
+            <li><b>Edita:</b> Ajusta el recorte. Puedes usar un ratio libre o forzar el 4:5 (Instagram).</li>
+            <li><b>Ordena:</b> Arrastra las fotos en el "Storyboard" inferior para cambiar el orden.</li>
+            <li><b>Exporta:</b> Descarga un ZIP con todas las imágenes listas para publicar.</li>
+        </ul>
+      </div>
+
+      <div class="helpBlock">
+        <h4>2. ¿Qué es la Inteligencia Artificial (IA)?</h4>
+        <p>Esta herramienta se conecta con <b>OpenAI (GPT)</b> para corregir la ortografía y mejorar el "gancho" de tus textos automáticamente.</p>
+        <p>Para usarlo, necesitas una <b>API Key</b> (una contraseña especial).</p>
+      </div>
+
+      <div class="helpBlock">
+        <h4>3. ¿Cómo obtener tu API Key?</h4>
+        <ol>
+            <li>Ve a <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--primary)">platform.openai.com</a>.</li>
+            <li>Inicia sesión o crea una cuenta.</li>
+            <li><b>IMPORTANTE:</b> Debes añadir saldo (aprox $5 USD) en <i>Settings > Billing</i>. Las cuentas gratuitas antiguas ya no funcionan con API.</li>
+            <li>Ve a "API Keys" y pulsa <b>"Create new secret key"</b>.</li>
+            <li>Copia la clave que empieza por <code>sk-...</code></li>
+        </ol>
+      </div>
+
+      <div class="helpBlock">
+        <h4>4. Configuración Segura</h4>
+        <p>Pulsa el botón <b>⚙️ AI</b> en el menú superior y pega tu clave.</p>
+        <div class="codeBox">Tu clave se guarda en TU navegador (LocalStorage). Nosotros no tenemos servidores ni acceso a ella.</div>
+      </div>
+    </div>
+    <div class="modalActions">
+      <button class="btn primary" id="helpOkBtn">Entendido</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -755,13 +814,19 @@
   const headerMsg = $('headerMsg'); 
   const empty = $('empty');
 
-  // Modal
+  // Modal Ratios
   const changeRatioBtn = $('changeRatio');
   const modalOverlay = $('modalOverlay');
   const modalClose = $('modalClose');
   const modalCancel = $('modalCancel');
   const modalApply = $('modalApply');
   const modalRatio = $('modalRatio');
+
+  // Modal Help
+  const helpBtn = $('helpBtn');
+  const helpOverlay = $('helpOverlay');
+  const helpCloseBtn = $('helpCloseBtn');
+  const helpOkBtn = $('helpOkBtn');
 
   // Config Ratios
   const RATIOS = [
@@ -1416,7 +1481,11 @@
     if(e.target === captionText) return; // No atajos si escribes
     if(e.key==='ArrowLeft') moveSelection(-1);
     if(e.key==='ArrowRight') moveSelection(+1);
-    if(e.key==='Escape' && modalOverlay.style.display==='flex') closeModal();
+    // Escape cierra modales
+    if(e.key==='Escape') {
+        if(modalOverlay.style.display==='flex') closeModal();
+        if(helpOverlay.style.display==='flex') helpOverlay.style.display='none';
+    }
   });
 
   moveUp.addEventListener('click', ()=> moveItem(-1));
@@ -1464,6 +1533,7 @@
     if(dt?.files?.length) addFiles(dt.files);
   });
 
+  // Modal Ratio Events
   changeRatioBtn.addEventListener('click', () => {
     if(items.length===0) return;
     openModal();
@@ -1479,6 +1549,16 @@
     applyCarouselRatio(newKey);
     closeModal();
   });
+
+  // Modal Help Events
+  const closeHelp = () => helpOverlay.style.display='none';
+  helpBtn.addEventListener('click', () => helpOverlay.style.display='flex');
+  helpCloseBtn.addEventListener('click', closeHelp);
+  helpOkBtn.addEventListener('click', closeHelp);
+  helpOverlay.addEventListener('click', (e) => {
+      if(e.target===helpOverlay) closeHelp();
+  });
+
 
   qVal.textContent = Number(q.value).toFixed(2);
   updateAiUi();
