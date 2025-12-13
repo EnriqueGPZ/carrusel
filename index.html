@@ -937,7 +937,7 @@
 
   aiFixBtn.addEventListener('click', fixCaptionWithAI);
 
-  // --- MAIN APP LOGIC ---
+  // --- MAIN APP LOGIC (FIXED) ---
 
   function destroyCropper(){
     if(cropper){ cropper.destroy(); cropper=null; }
@@ -1161,7 +1161,7 @@
       destroyCropper();
       preview.src='';
       dots.innerHTML='';
-      img.src='';
+      img.removeAttribute('src'); // Limpiar src
       ratioLabel.textContent = '1:1';
       captionText.value = '';
       charCount.textContent = '0 / 2200';
@@ -1195,55 +1195,79 @@
     }
   }
 
-  function initCropper(){
+  // --- FIXED CROPPER INIT ---
+  function initCropper(restoreConfig = null){
     destroyCropper();
+    
     cropper = new Cropper(img, {
       viewMode: 1, 
       dragMode: 'move',
       autoCropArea: 1,
       background: false,
-      zoomOnWheel: false,
-      wheelZoomRatio: 0,
+      zoomOnWheel: false, 
       movable: true,
       rotatable: true,
       scalable: false,
       cropBoxMovable: true,
       cropBoxResizable: true,
-      responsive: true,
       checkCrossOrigin: false,
-      aspectRatio: currentRatio || NaN,
+      // Aplicar el ratio correcto desde el inicio
+      aspectRatio: restoreConfig ? restoreConfig.ratio : (currentRatio || NaN),
       
-      ready: function() { syncPreviewRealTime(); },
+      ready: function() {
+        // Restaurar datos solo cuando esté listo
+        if(restoreConfig && restoreConfig.data){
+            this.cropper.setData(restoreConfig.data);
+        }
+        syncPreviewRealTime(); 
+      },
       cropend: function() { syncPreviewRealTime(); },
       zoom: function() { setTimeout(syncPreviewRealTime, 100); }
     });
   }
 
+  // --- FIXED SELECTION LOGIC ---
   function select(i){
-    if(i<0||i>=items.length) return;
+    if(i < 0 || i >= items.length) return;
+    
+    // 1. Destruir instancia previa antes de cambiar nada
+    destroyCropper();
+    
     selected = i;
-    if(carouselRatioKey){
-      currentRatio = valueFromKey(carouselRatioKey);
-    }
     const it = items[selected];
-    ratioLabel.textContent = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
+    
+    // UI Updates
+    const ratioKey = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
+    ratioLabel.textContent = ratioKey;
+    updateHeader();
+
+    // 2. Limpiar imagen previa del DOM
+    img.removeAttribute('src');
+    
+    // 3. Asignar nueva imagen
     img.src = it.url;
+    
     img.onload = () => {
-      initCropper();
-      if(carouselRatioKey){
-        cropper.setAspectRatio(currentRatio);
-      } else if(it.ratioKey){
-        currentRatio = valueFromKey(it.ratioKey);
-        cropper.setAspectRatio(currentRatio);
-      } else {
-        cropper.setAspectRatio(currentRatio);
-      }
-      if(it.cropData) cropper.setData(it.cropData);
+      let targetRatio = currentRatio;
       
-      setTimeout(syncPreviewRealTime, 50);
+      // Determinar ratio
+      if(carouselRatioKey){
+          targetRatio = valueFromKey(carouselRatioKey);
+      } else if(it.ratioKey){
+          targetRatio = valueFromKey(it.ratioKey);
+      }
+      
+      currentRatio = targetRatio;
+
+      // 4. Iniciar con configuración de restauración
+      initCropper({
+          ratio: targetRatio,
+          data: it.cropData 
+      });
+      
+      renderAll();
+      buildDots();
     };
-    renderAll();
-    updatePreview();
   }
 
   function moveSelection(dir){
@@ -1270,9 +1294,8 @@
 
   function updatePreview(){
     if(items.length===0 || selected<0) { setDisabled(); return; }
-    if(cropper) {
-        syncPreviewRealTime();
-    } else {
+    // Si no hay cropper activo (carga inicial), usamos thumb
+    if(!cropper) {
         const it = items[selected];
         const ratioKey = carouselRatioKey || keyFromValue(currentRatio);
         const r = valueFromKey(ratioKey);
@@ -1297,28 +1320,39 @@
       }).observe(feedContainer);
   }
 
+  // --- FIXED SAVE LOGIC ---
   async function saveCurrentCrop(){
     const it = items[selected];
     if(!it || !cropper) return;
+
+    // Si no hay bloqueo global, bloqueamos al guardar para consistencia
     if(!carouselRatioKey){
-      const rk = keyFromValue(currentRatio);
-      lockCarouselRatioIfNeeded(rk);
-      currentRatio = valueFromKey(carouselRatioKey);
-      cropper.setAspectRatio(currentRatio);
+       const rk = keyFromValue(currentRatio);
+       carouselRatioKey = rk; 
+       updateRatioModeUI();
+       toast('info', 'Ratio Fijado', `Carrusel ajustado a ${rk}`);
     }
+
+    // Guardar datos
     it.cropData = cropper.getData(true);
     it.ratioKey = carouselRatioKey;
+    
+    // Generar thumb
     const pr = valueFromKey(it.ratioKey);
     const thW = 540;
     const thH = Math.max(1, Math.round(thW / pr));
+    
     const c = cropper.getCroppedCanvas({
       width: thW, height: thH,
       imageSmoothingEnabled: true, imageSmoothingQuality: 'high'
     });
-    it.thumbDataUrl = c.toDataURL('image/jpeg', 0.9);
-    renderAll();
-    updatePreview();
-    toast('ok', 'Guardado', `${it.ratioKey}`);
+    
+    if(c){
+        it.thumbDataUrl = c.toDataURL('image/jpeg', 0.9);
+        renderList(); 
+        renderStrip();
+        toast('ok', 'Guardado', `Recorte aplicado.`);
+    }
   }
 
   function dataURLToBlob(dataURL){
@@ -1358,7 +1392,9 @@
     const ratioKey = carouselRatioKey || it.ratioKey || keyFromValue(currentRatio);
     const {w:W,h:H} = outDims(ratioKey, base);
 
+    // Si es la imagen activa, usamos el cropper
     if(it === items[selected] && cropper){
+      // Aseguramos ratio antes de exportar
       if(carouselRatioKey) cropper.setAspectRatio(valueFromKey(carouselRatioKey));
       const c = cropper.getCroppedCanvas({
         width: W, height: H,
@@ -1368,6 +1404,7 @@
       return c.toDataURL(format==='png'?'image/png':'image/jpeg', quality);
     }
 
+    // Si no es la activa, reconstruimos desde los datos guardados
     const imgEl = await imageFromUrl(it.url);
     const canvas = document.createElement('canvas');
     canvas.width=W; canvas.height=H;
@@ -1384,6 +1421,7 @@
     if(it.cropData){
       sx=it.cropData.x; sy=it.cropData.y; sw=it.cropData.width; sh=it.cropData.height;
     } else {
+      // Auto-center fallback
       const iw=imgEl.naturalWidth, ih=imgEl.naturalHeight, ir=iw/ih;
       if(ir>targetRatio){ sh=ih; sw=Math.round(ih*targetRatio); sx=Math.round((iw-sw)/2); sy=0; }
       else { sw=iw; sh=Math.round(iw/targetRatio); sx=0; sy=Math.round((ih-sh)/2); }
@@ -1460,7 +1498,7 @@
     items=[]; selected=-1;
     list.innerHTML=''; strip.innerHTML='';
     preview.src=''; dots.innerHTML='';
-    img.src='';
+    img.removeAttribute('src');
     ratioLabel.textContent = '1:1';
     captionText.value = '';
     charCount.textContent = '0 / 2200';
