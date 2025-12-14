@@ -574,7 +574,7 @@
         
         <div class="toolGroup">
             <span class="label">IA Edit</span>
-            <button class="btn primary" id="aiEditPromptBtn" title="Editar con Prompt" style="padding:0 8px" disabled>✨ Editar IA</button>
+            <button class="btn primary" id="aiEditPromptBtn" title="Editor IA Independiente">✨ Editor IA</button>
         </div>
         <div class="toolGroup" style="margin-left:auto; margin-right:8px">
             <button class="btn" id="rotL" title="Rotar izq" style="padding:0 8px">⟲</button>
@@ -749,26 +749,52 @@
     </div>
 </div>
 <div class="modalOverlay" id="aiEditModalOverlay" style="z-index:220">
-  <div class="modal" style="width:450px; max-width:95%">
+  <div class="modal" style="width:650px; max-width:95%">
     <div class="modalTop">
-      <b id="aiEditModalTitle">Editar Imagen con IA (Replicate)</b>
+      <b id="aiEditModalTitle">✨ Editor IA Independiente (Replicate)</b>
       <button class="btn" id="aiEditModalClose" style="border:none; background:transparent; padding:0; width:24px;">✕</button>
     </div>
-    <div class="modalBody">
-      <p style="color:var(--text-muted); margin-bottom:12px; font-size:13px">
-        Describe el cambio que deseas hacer a la imagen.
+    <div class="modalBody" style="display:flex; flex-direction:column; gap:16px;">
+      
+      <p style="color:var(--danger); font-weight:600; font-size:13px">
+        Este módulo no edita el carrusel activo. Procesa la imagen y te permite descargar el resultado.
       </p>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+        <div>
+            <label class="label" style="margin-bottom:8px;">1. Imagen y Prompt</label>
+            <label class="dropzone" id="aiDropzone" style="cursor:pointer; padding:12px">
+                <input id="aiFileInput" type="file" accept="image/*">
+                <div style="font-size:13px; font-weight:500; color:var(--text-main)" id="aiFileLabel">
+                    Arrastra aquí o haz click para seleccionar una foto.
+                </div>
+            </label>
+
+            <label class="label" style="margin-top:12px;">Instrucción / Prompt</label>
+            <textarea id="aiEditPromptInput" class="captionInput" style="height:80px; margin-top:4px;" placeholder="Ej: Quita la persona que está al fondo y mejora la iluminación."></textarea>
+            
+            <button class="btn primary" id="aiModalProcessBtn" style="width:100%; margin-top:12px;" disabled>
+                Procesar Imagen con IA
+            </button>
+        </div>
+
+        <div>
+            <label class="label">2. Resultado</label>
+            <div id="aiPreviewWrap" style="height:250px; background:var(--bg); border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; justify-content:center; margin-top:4px; overflow:hidden">
+                <img id="aiPreviewImg" src="" alt="Resultado IA" style="max-width:100%; max-height:100%; display:none; object-fit:contain;">
+                <span id="aiPlaceholder" style="color:var(--text-muted); font-size:12px;">Esperando procesamiento...</span>
+            </div>
+            
+            <button class="btn success" id="aiModalDownloadBtn" style="width:100%; margin-top:12px;" disabled>
+                ↓ Descargar Resultado (JPG)
+            </button>
+        </div>
+      </div>
       
-      <label class="label">Instrucción / Prompt</label>
-      <textarea id="aiEditPromptInput" class="captionInput" style="height:100px; margin-top:4px;" placeholder="Ej: Haz que la camisa sea de color azul eléctrico."></textarea>
-      
-      <small style="color:var(--danger); margin-top:8px; display:block; font-weight:500;">
-        ⚠️ Se requiere la clave API de Replicate configurada en ⚙️ AI.
-      </small>
     </div>
     <div class="modalActions">
-      <button class="btn" id="aiEditModalCancel">Cancelar</button>
-      <button class="btn primary" id="aiEditModalApply">Aplicar Edición</button>
+      <small style="color:var(--text-dim); margin-right:auto;">Modelo: bytedance/seedream-4. Requiere clave de Replicate en ⚙️ AI.</small>
+      <button class="btn primary" id="aiEditModalCancel">Cerrar</button>
     </div>
   </div>
 </div>
@@ -784,7 +810,7 @@
         <ul>
             <li><b>Sube imágenes:</b> Arrastra archivos o usa el botón "Añadir".</li>
             <li><b>Edita:</b> Ajusta el recorte. Puedes usar un ratio libre o forzar el 4:5 (Instagram).</li>
-            <li>**Edición con IA:** Usa el botón "✨ Editar IA" para modificar la imagen con un prompt (requiere clave de Replicate).</li>
+            <li>**Editor IA:** Usa el botón "✨ Editor IA" para un módulo separado donde puedes subir una foto, editarla con un prompt y descargar el resultado.</li>
             <li><b>Ordena:</b> Arrastra las fotos en el "Storyboard" inferior para cambiar el orden.</li>
             <li><b>Exporta:</b> Descarga un ZIP con todas las imágenes listas para publicar.</li>
         </ul>
@@ -798,7 +824,7 @@
       
       <div class="helpBlock">
         <h4>3. Modelo de Replicate Usado</h4>
-        <p>La edición de imagen utiliza el modelo <code>bytedance/seedream-4</code>, que soporta edición de imagen-a-imagen (image-to-image).</p>
+        <p>La edición de imagen utiliza el modelo <code>bytedance/seedream-4</code>.</p>
       </div>
     </div>
     <div class="modalActions">
@@ -811,7 +837,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  // Elementos
+  // Elementos principales y UI
   const files = $('files');
   const list = $('list');
   const strip = $('strip');
@@ -881,7 +907,6 @@
   const aiEditModalOverlay = $('aiEditModalOverlay');
   const aiEditModalClose = $('aiEditModalClose');
   const aiEditModalCancel = $('aiEditModalCancel');
-  const aiEditModalApply = $('aiEditModalApply');
   const aiEditPromptInput = $('aiEditPromptInput');
   const aiConfigModalOverlay = $('aiConfigModalOverlay');
   const aiConfigModalClose = $('aiConfigModalClose');
@@ -889,6 +914,20 @@
   const aiConfigModalSave = $('aiConfigModalSave');
   const openAiKeyInput = $('openAiKeyInput');
   const replicateKeyInput = $('replicateKeyInput');
+
+  // NUEVOS ELEMENTOS Y ESTADO para el Editor Independiente
+  const aiDropzone = $('aiDropzone');
+  const aiFileInput = $('aiFileInput');
+  const aiFileLabel = $('aiFileLabel');
+  const aiPreviewWrap = $('aiPreviewWrap');
+  const aiPreviewImg = $('aiPreviewImg');
+  const aiPlaceholder = $('aiPlaceholder');
+  const aiModalProcessBtn = $('aiModalProcessBtn');
+  const aiModalDownloadBtn = $('aiModalDownloadBtn');
+  
+  let standaloneInputDataUrl = null; // Base64 de la imagen de entrada
+  let standaloneOutputUrl = null; // URL del resultado de Replicate
+
 
   // Config Ratios
   const RATIOS = [
@@ -918,8 +957,6 @@
   let replicateKey = localStorage.getItem('carusel_ai_key_replicate') || '';
 
 
-  editorCanvas.addEventListener('wheel', (e) => e.preventDefault(), { passive:false });
-
   const pad2 = (n)=> String(n).padStart(2,'0');
 
   function toast(type, title, msg){
@@ -942,8 +979,9 @@
       if(openAiKey || replicateKey) aiSettingsBtn.classList.add('primary');
       else aiSettingsBtn.classList.remove('primary');
 
-      // Deshabilitar botón de edición de imagen si no hay clave de Replicate
-      aiEditPromptBtn.disabled = !replicateKey || selected < 0; 
+      // Deshabilitar el botón de edición si no hay clave de Replicate (en el editor principal, aunque no se use)
+      // En este caso, lo dejamos activado para que el usuario pueda abrir el modal independiente si quiere.
+      // aiEditPromptBtn.disabled = !replicateKey; 
   }
 
   function openAiConfigModal() {
@@ -1031,39 +1069,93 @@
 
   aiFixBtn.addEventListener('click', fixCaptionWithAI);
   
-  // --- LÓGICA DE EDICIÓN DE IMAGEN (REPLICATE - CLIENT-SIDE) ---
+  // --- LÓGICA DE EDICIÓN DE IMAGEN (REPLICATE - STANDALONE) ---
   
-  async function editImageWithAI(prompt = '') {
-      if (selected < 0 || !items[selected]) return; 
+  function openStandaloneAIEditor() {
+    if (!replicateKey) return toast('bad', 'Clave Faltante', 'Configura tu clave de Replicate en ⚙️ AI.');
+    
+    // Resetear estado del modal
+    aiEditModalOverlay.style.display = 'flex';
+    aiEditPromptInput.value = '';
+    aiFileLabel.textContent = 'Arrastra aquí o haz click para seleccionar una foto.';
+    aiPreviewImg.style.display = 'none';
+    aiPlaceholder.style.display = 'inline';
+    aiPlaceholder.textContent = 'Esperando procesamiento...';
+    aiModalDownloadBtn.disabled = true;
+    aiModalProcessBtn.disabled = true;
+    standaloneInputDataUrl = null;
+    standaloneOutputUrl = null;
+    aiFileInput.value = ''; // Limpiar input file
+  }
+  
+  // Manejo de la subida de imagen al módulo
+  aiFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            standaloneInputDataUrl = e.target.result; // Almacena el Base64
+            aiFileLabel.textContent = `Foto seleccionada: ${file.name}`;
+            aiModalProcessBtn.disabled = false;
+            aiModalDownloadBtn.disabled = true;
+            aiPreviewImg.style.display = 'none';
+            aiPlaceholder.style.display = 'inline';
+            aiPlaceholder.textContent = 'Listo para procesar.';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        toast('warn', 'Archivo', 'Por favor, selecciona una imagen.');
+        aiModalProcessBtn.disabled = true;
+        standaloneInputDataUrl = null;
+    }
+  });
+
+  // Manejo de Drag and Drop del módulo IA
+  const stopDrag = (e)=>{ e.preventDefault(); e.stopPropagation(); };
+  ['dragenter','dragover'].forEach(ev=>{
+    aiDropzone.addEventListener(ev, (e)=>{ stopDrag(e); aiDropzone.classList.add('drag'); });
+  });
+  ['dragleave','drop'].forEach(ev=>{
+    aiDropzone.addEventListener(ev, (e)=>{ stopDrag(e); aiDropzone.classList.remove('drag'); });
+  });
+  aiDropzone.addEventListener('drop', (e)=>{
+    const dt = e.dataTransfer;
+    if(dt?.files?.length) {
+        aiFileInput.files = dt.files;
+        aiFileInput.dispatchEvent(new Event('change')); // Ejecuta la lógica de carga
+    }
+  });
+
+
+  async function processStandaloneImage(prompt) {
+      if (!standaloneInputDataUrl) return toast('warn', 'Faltante', 'Sube una imagen primero.');
       if (!replicateKey) return toast('bad', 'Sin Replicate Key', 'Configúrala en ⚙️ AI.');
+      if (prompt.length < 5) return toast('warn', 'Prompt', 'Escribe una instrucción más detallada.');
 
       // 1. Deshabilitar y mostrar estado de carga
-      const btn = aiEditPromptBtn;
+      const btn = aiModalProcessBtn;
       const originalText = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinning">↻</span> Procesando IA...';
-      toast('info', 'Replicate IA', 'Enviando a Replicate. Esto puede tardar 30-60s...');
+      aiModalDownloadBtn.disabled = true;
+      aiPlaceholder.textContent = 'Procesando en Replicate... (puede tardar)';
+      aiPlaceholder.classList.add('spinning');
+      aiPreviewImg.style.display = 'none';
+      aiPlaceholder.style.display = 'inline';
+      toast('info', 'Replicate IA', 'Enviando imagen a IA...');
 
       try {
-          // Obtener la imagen actual (la recortada en el editor)
-          const currentCanvas = cropper.getCroppedCanvas();
-          if (!currentCanvas) throw new Error('No se pudo obtener el canvas del cropper.');
-
-          // Convertir a Data URL (la base64 de la imagen)
-          const imageDataUrl = currentCanvas.toDataURL('image/jpeg', 0.8); 
-          
           // 2. Petición DIRECTA a la API de Replicate
-          const response = await fetch('https://api.replicate.com/v1/models/bytedance/seedream-4/predictions', { 
+          const apiResponse = await fetch('https://api.replicate.com/v1/models/bytedance/seedream-4/predictions', { 
               method: 'POST',
               headers: { 
                   'Content-Type': 'application/json',
-                  'Authorization': `Token ${replicateKey}`, // Usa la clave de Replicate
-                  'Prefer': 'wait' // Solicita una respuesta síncrona, si es posible
+                  'Authorization': `Token ${replicateKey}`, 
+                  'Prefer': 'wait' 
               },
               body: JSON.stringify({
                   input: {
                       prompt: prompt,
-                      image_input: [imageDataUrl], // Imagen activa en Base64
+                      image_input: [standaloneInputDataUrl], // Imagen de entrada Base64
                       size: "2K",
                       aspect_ratio: "match_input_image",
                       enhance_prompt: true,
@@ -1073,75 +1165,76 @@
               })
           });
 
-          const result = await response.json();
+          const result = await apiResponse.json();
 
-          if (response.ok) {
-              if (result.output && result.output.length > 0) {
-                  // 3. Actualizar la imagen con la URL resultante de Replicate
-                  const newItem = items[selected];
-                  // Generar un Data URL local para que Cropper pueda cargarla de forma segura
-                  // Esto evita problemas de CORS con la URL externa de Replicate
-                  const newImageUrl = result.output[0];
-                  
-                  // Reemplazar el elemento con una nueva imagen
-                  // Primero descargamos la imagen de Replicate y la convertimos a Blob/DataURL local
-                  const fetchResponse = await fetch(newImageUrl);
-                  const blob = await fetchResponse.blob();
-                  const localUrl = URL.createObjectURL(blob);
-
-
-                  URL.revokeObjectURL(newItem.url); 
-                  newItem.url = localUrl; 
-                  newItem.thumbDataUrl = null; 
-                  newItem.cropData = null; 
-                  
-                  select(selected); 
-                  toast('ok', 'Replicate IA', 'Imagen actualizada con éxito.');
-              } else {
-                   // Manejo de errores de predicción o resultados vacíos
-                   throw new Error(result.error || 'Replicate no pudo generar la imagen. Intenta cambiar el prompt.');
-              }
-          } else {
-              // Manejo de errores de red o autenticación
-              throw new Error(result.detail || result.error || 'Error de conexión/autenticación con Replicate. Revisa la clave.');
+          if (!apiResponse.ok) {
+               // Errores de API (4xx, 5xx)
+               const errorMsg = result.detail || result.error || 'Error de API o autenticación con Replicate. Verifica tu clave.';
+               throw new Error(errorMsg);
           }
+
+          if (!result.output || result.output.length === 0) {
+              throw new Error('Replicate no devolvió una imagen válida. Intenta un prompt diferente.');
+          }
+          
+          standaloneOutputUrl = result.output[0]; // Guarda la URL externa
+          
+          // 3. Mostrar resultado y habilitar descarga
+          aiPreviewImg.src = standaloneOutputUrl;
+          aiPreviewImg.style.display = 'block';
+          aiPlaceholder.style.display = 'none';
+          aiModalDownloadBtn.disabled = false;
+          toast('ok', 'Replicate IA', 'Edición completada. Listo para descargar.');
+          
 
       } catch (err) {
           console.error('Error de Replicate:', err);
-          toast('bad', 'Error Replicate', err.message || 'Verifica tu clave o el prompt.');
+          aiPlaceholder.textContent = 'ERROR. Revisa la consola o tu clave.';
+          toast('bad', 'Error Replicate', err.message || 'Error desconocido.');
       } finally {
           // 4. Restaurar el botón
+          aiPlaceholder.classList.remove('spinning');
           btn.disabled = false;
           btn.innerHTML = originalText;
       }
   }
 
+  // Descarga del módulo independiente
+  aiModalDownloadBtn.addEventListener('click', async () => {
+      if (!standaloneOutputUrl) return;
+
+      try {
+          // Descargar la imagen
+          const fetchResponse = await fetch(standaloneOutputUrl); 
+          const blob = await fetchResponse.blob();
+          
+          // Usar la función de descarga existente
+          downloadBlob(blob, `AI_Edit_${new Date().getTime()}.jpg`);
+          toast('ok', 'Descargando', 'Imagen IA guardada.');
+          
+      } catch (e) {
+          console.error("Error de descarga:", e);
+          toast('bad', 'Error de Descarga', 'No se pudo descargar. Puede ser un error CORS.');
+      }
+  });
+
+
   // Eventos del Modal de Edición IA
-  aiEditPromptBtn.addEventListener('click', () => {
-    if (selected < 0) return toast('warn', 'Error', 'Selecciona una imagen primero.');
-    if (!replicateKey) return toast('bad', 'Clave Faltante', 'Configura tu clave de Replicate en ⚙️ AI.');
-    aiEditModalOverlay.style.display = 'flex';
-    aiEditPromptInput.value = '';
-    aiEditPromptInput.focus();
+  aiEditPromptBtn.addEventListener('click', openStandaloneAIEditor);
+
+  aiModalProcessBtn.addEventListener('click', () => {
+      const prompt = aiEditPromptInput.value.trim();
+      processStandaloneImage(prompt);
   });
 
   [aiEditModalClose, aiEditModalCancel].forEach(btn => {
       btn.addEventListener('click', () => { aiEditModalOverlay.style.display = 'none'; });
   });
 
-  aiEditModalApply.addEventListener('click', () => {
-      const prompt = aiEditPromptInput.value.trim();
-      if (prompt.length < 5) {
-          return toast('warn', 'Prompt inválido', 'Escribe una instrucción más detallada.');
-      }
-      aiEditModalOverlay.style.display = 'none';
-      editImageWithAI(prompt);
-  });
-  
   // ------------------------------------
 
 
-  // --- MAIN APP LOGIC (CORREGIDO) ---
+  // --- MAIN APP LOGIC (Corregido el bug de carga) ---
 
   function destroyCropper(){
     if(cropper){ cropper.destroy(); cropper=null; }
@@ -1484,6 +1577,7 @@
         handleImageLoad(); 
     }
   }
+
 
   function moveSelection(dir){
     if(items.length<=1) return;
