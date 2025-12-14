@@ -43,16 +43,10 @@
   const dlZip = $('dlZip');
   const exportCropBtn = $('exportCrop');
 
-  // Caption & AI (OpenAI)
+  // Caption & AI
   const captionText = $('captionText');
   const charCount = $('charCount');
   const aiFixBtn = $('aiFixBtn');
-  
-  // Replicate AI
-  const replicatePrompt = $('replicatePrompt');
-  const replicateRatio = $('replicateRatio');
-  const replicateInputImage = $('replicateInputImage');
-  const generateImageBtn = $('generateImageBtn');
 
   const countEl = $('count');
   const selNameEl = $('selName');
@@ -569,62 +563,10 @@
   
   // --- Event Listeners ---
   
-  // AI (OpenAI)
+  // AI
   if (aiFixBtn) {
     aiFixBtn.addEventListener('click', () => fixCaptionWithAI(captionText, charCount));
     updateAiUi(); // Inicializar estado visual de la IA
-  }
-
-  // AI (Replicate)
-  if(generateImageBtn) {
-    generateImageBtn.addEventListener('click', async () => {
-        const prompt = replicatePrompt.value.trim();
-        const ratio = replicateRatio.value;
-        const useInputImage = replicateInputImage.value === 'yes';
-        
-        if (!prompt) return toast('warn', 'Prompt vacío', 'Escribe una descripción.');
-
-        const originalText = generateImageBtn.innerHTML;
-        generateImageBtn.disabled = true;
-        generateImageBtn.innerHTML = '<span class="spinning">↻</span> Generando...';
-        
-        let inputDataUrl = null;
-        if (useInputImage && selected >= 0) {
-            // Usar la imagen activa, forzando recorte con la calidad máxima permitida (2160px)
-            sizeEl.value = '2160'; 
-            fmt.value = 'png';
-            inputDataUrl = await exportRecorteToDataURL(items[selected]);
-            sizeEl.value = '1080'; // Restaurar UI (aunque no se usa en el export de Replicate)
-            fmt.value = 'jpeg'; // Restaurar UI
-        } else if (useInputImage) {
-            toast('warn', 'Sin Imagen', 'Selecciona una imagen para usar Image-to-Image.');
-            generateImageBtn.disabled = false;
-            generateImageBtn.innerHTML = originalText;
-            return;
-        }
-
-        try {
-            const imageUrl = await generateImageWithReplicate(prompt, ratio, inputDataUrl);
-            
-            // 1. Descargar la imagen generada como Blob
-            const blob = await fetch(imageUrl).then(r => r.blob());
-            
-            // 2. Crear un File de la imagen generada
-            const f = new File([blob], `AI_${baseName(prompt).slice(0, 30)}__${ratio.replace(':','x')}.png`, { type: 'image/png' });
-            
-            // 3. Añadir el File a la lista de elementos
-            await addFiles([f]); 
-            
-            toast('ok', 'Imagen Generada', 'Añadida al carrusel.');
-
-        } catch (err) {
-            console.error(err);
-            toast('bad', 'Error Replicate', err.message);
-        } finally {
-            generateImageBtn.disabled = false;
-            generateImageBtn.innerHTML = originalText;
-        }
-    });
   }
 
   // Caption
@@ -763,5 +705,4 @@
   updateHeader();
   toggleEmpty();
   updateRatioModeUI();
-  updateReplicateUi(); // Inicializar UI de Replicate
 })();

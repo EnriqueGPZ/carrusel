@@ -90,7 +90,7 @@ async function imageFromUrl(url){
   });
 }
 
-// --- Lógica de IA (OpenAI) ---
+// --- Lógica de IA ---
 
 let openAiKey = localStorage.getItem('carusel_ai_key') || '';
 const aiSettingsBtn = $('aiSettings');
@@ -98,8 +98,8 @@ const aiFixBtn = $('aiFixBtn');
 
 function updateAiUi() {
     aiFixBtn.style.display = openAiKey ? 'inline-flex' : 'none';
-    if(openAiKey) aiSettingsBtn?.classList.add('primary');
-    else aiSettingsBtn?.classList.remove('primary');
+    if(openAiKey) aiSettingsBtn.classList.add('primary');
+    else aiSettingsBtn.classList.remove('primary');
 }
 
 if(aiSettingsBtn) {
@@ -109,7 +109,7 @@ if(aiSettingsBtn) {
             openAiKey = key.trim();
             localStorage.setItem('carusel_ai_key', openAiKey);
             updateAiUi();
-            toast('ok', 'API Key OpenAI', openAiKey ? 'Guardada correctamente.' : 'Eliminada.');
+            toast('ok', 'API Key', openAiKey ? 'Guardada correctamente.' : 'Eliminada.');
         }
     });
 }
@@ -165,70 +165,4 @@ async function fixCaptionWithAI(captionTextEl, charCountEl) {
         aiFixBtn.disabled = false;
         aiFixBtn.innerHTML = originalText;
     }
-}
-
-
-// --- Lógica de IA (Replicate) ---
-
-let replicateKey = localStorage.getItem('carusel_replicate_key') || '';
-const replicateSettingsBtn = $('replicateSettings');
-
-function updateReplicateUi() {
-    if (replicateKey) replicateSettingsBtn?.classList.add('primary');
-    else replicateSettingsBtn?.classList.remove('primary');
-}
-
-if(replicateSettingsBtn) {
-    replicateSettingsBtn.addEventListener('click', () => {
-        const key = prompt("Introduce tu API Key de Replicate (r8-...):\nSe guardará en tu navegador.", replicateKey);
-        if (key !== null) {
-            replicateKey = key.trim();
-            localStorage.setItem('carusel_replicate_key', replicateKey);
-            updateReplicateUi();
-            toast('ok', 'API Key Replicate', replicateKey ? 'Guardada correctamente.' : 'Eliminada.');
-        }
-    });
-}
-
-/**
- * Llama a la API de Replicate para generar una imagen.
- * @param {string} prompt - El prompt para el modelo.
- * @param {string} aspectRatio - El ratio de aspecto.
- * @param {string} [imageInputDataURL] - DataURL de una imagen base (opcional).
- * @returns {Promise<string>} URL de la imagen generada.
- */
-async function generateImageWithReplicate(prompt, aspectRatio, imageInputDataURL = null) {
-    if (!replicateKey) throw new Error('API Key de Replicate no configurada.');
-
-    const body = {
-        "input": {
-            "prompt": prompt,
-            "resolution": "2K",
-            "image_input": imageInputDataURL ? [imageInputDataURL] : [],
-            "aspect_ratio": aspectRatio,
-            "output_format": "png",
-            "safety_filter_level": "block_only_high"
-        }
-    };
-
-    const response = await fetch('https://api.replicate.com/v1/models/google/nano-banana-pro/predictions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${replicateKey}`,
-            'Prefer': 'wait' // Para espera síncrona
-        },
-        body: JSON.stringify(body)
-    });
-
-    const data = await response.json();
-    
-    if (data.error) {
-        throw new Error(data.error);
-    }
-    if (!data.output || !data.output[0]) {
-         throw new Error("La respuesta de Replicate no contiene la URL de la imagen.");
-    }
-    
-    return data.output[0];
 }

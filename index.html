@@ -33,7 +33,6 @@
 
   <div class="topActions">
     <button class="btn" id="helpBtn" title="Instrucciones">Ayuda</button>
-    <button class="btn" id="replicateSettings" title="Configurar API Key Replicate">🖼️ AI</button>
     <button class="btn" id="aiSettings" title="Configurar API Key">⚙️ AI</button>
     <button class="btn bad" id="clearAll" title="Vaciar todo">Vaciar</button>
   </div>
@@ -86,7 +85,7 @@
       </div>
     </div>
   </section>
-  
+
   <section class="card centerCol" style="border:none; background:transparent; box-shadow:none; overflow:hidden">
     <div class="editorToolbar">
         <div style="display:flex; align-items:center; gap:12px">
@@ -215,41 +214,7 @@
       </div>
     </div>
   </section>
-  
-  <section class="card" style="grid-column:1; margin-top: -16px;">
-    <div class="cardTop">
-        <div class="cardTitle">
-            <h2>🖼️ Generar Imagen (Replicate)</h2>
-        </div>
-    </div>
-    <div class="cardBody">
-        <label class="label">Prompt:</label>
-        <textarea id="replicatePrompt" class="captionInput" placeholder="Describe la imagen a generar... (ej: un perro astronauta, estilo óleo)"></textarea>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:12px">
-            <div>
-                <label class="label">Ratio</label>
-                <select class="select" id="replicateRatio" style="width:100%">
-                    <option value="1:1" selected>1:1 (Cuadrado)</option>
-                    <option value="4:5">4:5 (Retrato)</option>
-                    <option value="9:16">9:16 (Story)</option>
-                </select>
-            </div>
-            <div>
-                <label class="label">Añadir Seleccionada?</label>
-                <select class="select" id="replicateInputImage" style="width:100%">
-                    <option value="no" selected>No (Generación Pura)</option>
-                    <option value="yes">Sí (Image-to-Image)</option>
-                </select>
-            </div>
-        </div>
-
-        <button class="btn primary" id="generateImageBtn" style="margin-top:12px; height:38px; width:100%">
-            ✨ Generar Imagen
-        </button>
-    </div>
-  </section>
-  </main>
+</main>
 
 <div class="stripWrap">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
@@ -308,22 +273,23 @@
       <div class="helpBlock">
         <h4>2. ¿Qué es la Inteligencia Artificial (IA)?</h4>
         <p>Esta herramienta se conecta con <b>OpenAI (GPT)</b> para corregir la ortografía y mejorar el "gancho" de tus textos automáticamente.</p>
-        <p>Y con <b>Replicate</b> para generar nuevas imágenes.</p>
         <p>Para usarlo, necesitas una <b>API Key</b> (una contraseña especial).</p>
       </div>
 
       <div class="helpBlock">
         <h4>3. ¿Cómo obtener tu API Key?</h4>
         <ol>
-            <li>Ve a <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--primary)">platform.openai.com</a>. (Para el texto)</li>
-            <li>Ve a <a href="https://replicate.com/account/api-tokens" target="_blank" style="color:var(--primary)">replicate.com/account/api-tokens</a>. (Para las imágenes)</li>
-            <li>Copia la clave que empieza por <code>sk-...</code> o <code>r8-...</code> respectivamente.</li>
+            <li>Ve a <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--primary)">platform.openai.com</a>.</li>
+            <li>Inicia sesión o crea una cuenta.</li>
+            <li><b>IMPORTANTE:</b> Debes añadir saldo (aprox $5 USD) en <i>Settings > Billing</i>. Las cuentas gratuitas antiguas ya no funcionan con API.</li>
+            <li>Ve a "API Keys" y pulsa <b>"Create new secret key"</b>.</li>
+            <li>Copia la clave que empieza por <code>sk-...</code></li>
         </ol>
       </div>
 
       <div class="helpBlock">
         <h4>4. Configuración Segura</h4>
-        <p>Pulsa el botón <b>⚙️ AI</b> o <b>🖼️ AI</b> en el menú superior y pega tu clave.</p>
+        <p>Pulsa el botón <b>⚙️ AI</b> en el menú superior y pega tu clave.</p>
         <div class="codeBox">Tu clave se guarda en TU navegador (LocalStorage). Nosotros no tenemos servidores ni acceso a ella.</div>
       </div>
     </div>
