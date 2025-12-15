@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Panorama Studio Pro (Precisión Numérica)</title>
+  <title>Panorama Studio Pro (Masking)</title>
 
   <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -96,11 +96,27 @@
         font-size: 9px; font-weight: 700; color: #71717a; text-transform: uppercase;
     }
     .num-input {
-        background: #18181b; border: 1px solid #3f3f46; color: white;
-        border-radius: 6px; padding: 4px 6px; font-size: 11px; width: 100%;
-        outline: none; transition: border-color 0.2s;
+        background: #18181b; 
+        border: 1px solid #3f3f46; 
+        color: white;
+        border-radius: 6px; 
+        padding: 4px 6px; 
+        font-size: 11px; 
+        width: 100%;
+        outline: none; 
+        transition: border-color 0.2s;
+        color-scheme: normal; 
     }
     .num-input:focus { border-color: #3b82f6; }
+    
+    /* Flechas Blancas */
+    .num-input::-webkit-inner-spin-button, 
+    .num-input::-webkit-outer-spin-button {
+        filter: invert(100%);
+        cursor: pointer;
+        opacity: 1; 
+        height: 14px; 
+    }
 
     /* Modal */
     .modal-overlay {
@@ -165,7 +181,6 @@
       const [slides, setSlides] = useState(3);
       const [showHGuide, setShowHGuide] = useState(false);
       const [selected, setSelected] = useState(null);
-      // Estado para propiedades numéricas (X, Y, W, H)
       const [selProps, setSelProps] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
       const [view, setView] = useState({ x: 0, y: 0, zoom: 0.25 });
@@ -173,7 +188,7 @@
       const [isDraggingFile, setIsDraggingFile] = useState(false); 
       
       // Panel Flotante
-      const [panelPos, setPanelPos] = useState({ x: window.innerWidth - 280, y: 100 });
+      const [panelPos, setPanelPos] = useState({ x: window.innerWidth - 340, y: 100 }); 
       const [isDraggingPanel, setIsDraggingPanel] = useState(false);
       const panelDragOffset = useRef({ x: 0, y: 0 });
 
@@ -234,7 +249,6 @@
         });
         fabricRef.current = c;
 
-        // Función auxiliar para actualizar props numéricos
         const updateSelProps = (act) => {
              if (!act) return;
              setSelProps({
@@ -247,7 +261,8 @@
 
         const updateSel = () => {
           const act = c.getActiveObject();
-          setSelected(act ? { type: act.type, fill: act.fill } : null);
+          // Detectamos si tiene clipPath para UI
+          setSelected(act ? { type: act.type, fill: act.fill, hasMask: !!act.clipPath } : null);
           updateSelProps(act);
         };
         
@@ -259,7 +274,6 @@
             pushHistory(); 
             updateSel(); 
         });
-        // Actualizar números en tiempo real mientras se mueve/escala
         c.on('object:moving', (e) => { handleSnapMoving(e, slides, showHGuide); updateSelProps(e.target); });
         c.on('object:scaling', (e) => { handleSnapScaling(e, slides); updateSelProps(e.target); });
 
@@ -298,7 +312,7 @@
         const handleWindowMouseMove = (e) => {
             if (isDraggingPanel) {
                 setPanelPos({
-                    x: clamp(e.clientX - panelDragOffset.current.x, 0, window.innerWidth - 240),
+                    x: clamp(e.clientX - panelDragOffset.current.x, 0, window.innerWidth - 330),
                     y: clamp(e.clientY - panelDragOffset.current.y, 0, window.innerHeight - 300) 
                 });
             }
@@ -334,7 +348,7 @@
         if (key === 'y') act.set('top', numVal);
         if (key === 'w') {
             const scale = numVal / act.width;
-            act.set({ scaleX: scale, scaleY: scale }); // Bloqueamos ratio para fotos
+            act.set({ scaleX: scale, scaleY: scale }); 
         }
         if (key === 'h') {
             const scale = numVal / act.height;
@@ -353,12 +367,10 @@
           const act = c.getActiveObject();
           if(!act) return;
 
-          // 1. Detectar en qué slide está el objeto (basado en su centro)
           const center = act.getCenterPoint();
           const slideIndex = Math.floor(center.x / SLIDE_W);
           const currentSlideX = slideIndex * SLIDE_W;
 
-          // 2. Calcular nuevas coordenadas
           if (direction === 'h-center') {
               const newLeft = currentSlideX + (SLIDE_W - act.getScaledWidth()) / 2;
               act.set('left', newLeft);
@@ -371,11 +383,89 @@
           act.setCoords();
           c.requestRenderAll();
           pushHistory();
-          // Actualizar inputs
           setSelProps({
              x: Math.round(act.left), y: Math.round(act.top),
              w: Math.round(act.getScaledWidth()), h: Math.round(act.getScaledHeight())
           });
+      };
+
+      // --- AJUSTE LIBRE (FILL SLIDE) ---
+      const handleFillSlide = () => {
+          const c = fabricRef.current;
+          const act = c.getActiveObject();
+          if (!act || act.type !== 'image') return;
+
+          const targetW = SLIDE_W;
+          const targetH = SLIDE_H;
+          const center = act.getCenterPoint();
+          const slideIndex = Math.floor(center.x / SLIDE_W);
+          const currentSlideX = slideIndex * SLIDE_W;
+
+          const scaleX = targetW / act.width;
+          const scaleY = targetH / act.height;
+          const scale = Math.max(scaleX, scaleY); 
+
+          act.set({ scaleX: scale, scaleY: scale });
+          const newLeft = currentSlideX + (targetW - act.getScaledWidth()) / 2;
+          const newTop = (targetH - act.getScaledHeight()) / 2;
+          
+          act.set({ left: newLeft, top: newTop });
+          act.setCoords();
+          c.requestRenderAll();
+          pushHistory();
+          setSelProps({ x: Math.round(act.left), y: Math.round(act.top), w: Math.round(act.getScaledWidth()), h: Math.round(act.getScaledHeight()) });
+      };
+
+      // --- AJUSTE MASCARA (CROP TO SLIDE) ---
+      const handleMaskToSlide = () => {
+        const c = fabricRef.current;
+        const act = c.getActiveObject();
+        if (!act || act.type !== 'image') return;
+
+        // Toggle: Si ya tiene máscara, la quitamos
+        if (act.clipPath) {
+            act.clipPath = null;
+            act.dirty = true;
+            c.requestRenderAll();
+            setSelected(prev => ({ ...prev, hasMask: false }));
+            pushHistory();
+            return;
+        }
+
+        // 1. Detectar Slide
+        const center = act.getCenterPoint();
+        const slideIndex = Math.floor(center.x / SLIDE_W);
+        const slideLeft = slideIndex * SLIDE_W;
+
+        // 2. Escalar para cubrir hueco (igual que fill)
+        const scaleX = SLIDE_W / act.width;
+        const scaleY = SLIDE_H / act.height;
+        const scale = Math.max(scaleX, scaleY);
+        
+        // Centramos imagen primero
+        act.set({
+            scaleX: scale, scaleY: scale,
+            left: slideLeft + (SLIDE_W - act.width * scale) / 2,
+            top: (SLIDE_H - act.height * scale) / 2
+        });
+
+        // 3. Crear Máscara ESTÁTICA (absolutePositioned)
+        const clipRect = new fabric.Rect({
+            left: slideLeft,
+            top: 0,
+            width: SLIDE_W,
+            height: SLIDE_H,
+            absolutePositioned: true // <--- LA CLAVE: La máscara se queda fija en el canvas
+        });
+
+        act.clipPath = clipRect;
+        act.dirty = true;
+        
+        act.setCoords();
+        c.requestRenderAll();
+        setSelected(prev => ({ ...prev, hasMask: true }));
+        setSelProps({ x: Math.round(act.left), y: Math.round(act.top), w: Math.round(act.getScaledWidth()), h: Math.round(act.getScaledHeight()) });
+        pushHistory();
       };
 
       // --- CAMBIAR COLOR ---
@@ -495,7 +585,7 @@
         bringGuidesTop(c); c.requestRenderAll(); pushHistory(); setModalOpen(false);
       };
 
-      // --- TECLADO (AHORA CON MICRO-AJUSTES) ---
+      // --- TECLADO ---
       useEffect(() => {
         const handleKey = (e) => {
           if (modalOpen) return;
@@ -503,14 +593,13 @@
           const act = c?.getActiveObject();
           const mod = e.metaKey || e.ctrlKey;
           const shift = e.shiftKey;
-          const dist = shift ? 10 : 1; // 10px con Shift, 1px normal
+          const dist = shift ? 10 : 1; 
 
           if (e.key === 'Backspace' || e.key === 'Delete') deleteItem();
           if (mod && e.key === 'z') { e.preventDefault(); e.shiftKey ? applyHistory(1) : applyHistory(-1); }
           if (e.code === 'Space') { if (e.type === 'keydown') setSpaceDown(true); else setSpaceDown(false); }
           if (mod && e.key === '0') { e.preventDefault(); centerView(); }
 
-          // FLECHAS
           if (act && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
               e.preventDefault();
               if (e.key === 'ArrowLeft') act.left -= dist;
@@ -520,7 +609,6 @@
               act.setCoords();
               c.requestRenderAll();
               
-              // Actualizar UI numérica sin llenar el historial cada milisegundo
               setSelProps({
                  x: Math.round(act.left), y: Math.round(act.top),
                  w: Math.round(act.getScaledWidth()), h: Math.round(act.getScaledHeight())
@@ -676,7 +764,7 @@
 
           {selected && !modalOpen && (
             <div 
-                className="fixed w-64 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-50 shadow-2xl animate-[fadeIn_0.2s]"
+                className="fixed w-80 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-50 shadow-2xl animate-[fadeIn_0.2s]"
                 style={{ left: panelPos.x, top: panelPos.y }}
             >
                 <div className="flex justify-between items-center pb-2 border-b border-white/10 cursor-move-grab" onPointerDown={startDragPanel}>
@@ -687,7 +775,6 @@
                     <button onPointerDown={e => e.stopPropagation()} onClick={deleteItem} className="text-red-400 p-1 hover:bg-red-400/10 rounded" title="Eliminar"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
                 </div>
 
-                {/* --- NUEVO: INPUTS NUMERICOS --- */}
                 <div className="grid grid-cols-2 gap-3">
                     <div className="flex gap-2">
                          <div className="num-input-group flex-1">
@@ -711,7 +798,6 @@
                     </div>
                 </div>
 
-                {/* --- NUEVO: ALINEACIÓN --- */}
                 <div>
                      <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Alineación (En Slide)</label>
                      <div className="flex gap-2">
@@ -723,6 +809,22 @@
                          </button>
                      </div>
                 </div>
+
+                {/* --- NUEVO: BOTONES DE AJUSTE PARA IMAGENES --- */}
+                {selected.type === 'image' && (
+                    <div>
+                         <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Ajuste Rápido</label>
+                         <div className="flex flex-col gap-2">
+                            <button onClick={handleFillSlide} className="w-full bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg py-2 text-xs font-bold flex items-center justify-center gap-2 transition">
+                                <i data-lucide="maximize" className="w-3 h-3"></i> Rellenar (Libre)
+                            </button>
+                            <button onClick={handleMaskToSlide} className={`w-full rounded-lg py-2 text-xs font-bold flex items-center justify-center gap-2 transition ${selected.hasMask ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                                <i data-lucide={selected.hasMask ? "scissors" : "crop"} className="w-3 h-3"></i> 
+                                {selected.hasMask ? 'Quitar Máscara' : 'Enmascarar en Slide'}
+                            </button>
+                         </div>
+                    </div>
+                )}
                 
                 {selected.type === 'text' && (
                     <div className="text-xs text-zinc-400 italic text-center py-2 bg-zinc-800/50 rounded">Doble clic para editar texto</div>
