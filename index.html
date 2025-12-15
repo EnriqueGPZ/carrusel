@@ -3,26 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Panorama Studio Pro (Flotante)</title>
+  <title>Panorama Studio Pro (Drag & Drop)</title>
 
+  <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;700&family=Oswald:wght@400;700&family=Dancing+Script:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Lato:wght@400;700&family=Open+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Cabin:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
 
+  <!-- React & Babel -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+  <!-- TailwindCSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- Fabric.js, JSZip, FileSaver, Lucide -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Bloqueo total de scroll */
+    /* Estilos base y bloqueo de scroll */
     html, body {
       width: 100%; height: 100%;
       margin: 0; padding: 0;
@@ -34,7 +37,7 @@
     }
     #root { width: 100%; height: 100%; position: absolute; inset: 0; }
 
-    /* Canvas viewport */
+    /* Canvas Viewport */
     .viewport-container {
       width: 100%; height: 100%;
       position: absolute; inset: 0;
@@ -44,10 +47,17 @@
       z-index: 0;
       touch-action: none;
       will-change: transform;
+      transition: box-shadow 0.2s, background-color 0.2s;
     }
     .viewport-container.is-panning { cursor: grabbing; }
 
-    /* UI Components */
+    /* Estilo cuando se arrastra un archivo encima */
+    .viewport-container.drag-active {
+        box-shadow: inset 0 0 0 4px #3b82f6; /* Borde azul interno */
+        background-color: rgba(59, 130, 246, 0.1);
+    }
+
+    /* Paneles de UI */
     .glass-panel {
       background: rgba(24, 24, 27, 0.95);
       backdrop-filter: blur(12px);
@@ -76,11 +86,10 @@
     .btn-icon:hover { color: white; background: rgba(255,255,255,0.1); }
     .btn-icon:active { transform: scale(0.95); }
     
-    /* Cursor para mover panel */
     .cursor-move-grab { cursor: grab; }
     .cursor-move-grab:active { cursor: grabbing; }
 
-    /* Modal Overlay */
+    /* Modal */
     .modal-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.6);
@@ -91,6 +100,7 @@
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+    /* Range Slider */
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       height: 16px; width: 16px;
@@ -117,7 +127,6 @@
     
     const COLORS = ['#000000', '#FFFFFF', '#F87171', '#FB923C', '#FBBF24', '#34D399', '#22D3EE', '#60A5FA', '#818CF8', '#A78BFA', '#E879F9', '#FB7185'];
     
-    // LISTA DE FUENTES DISPONIBLES (ACTUALIZADA)
     const FONTS = [
       { name: 'Moderna (Inter)', family: 'Inter' },
       { name: 'Elegante (Playfair)', family: 'Playfair Display' },
@@ -127,7 +136,6 @@
       { name: 'Universal (Poppins)', family: 'Poppins' },
       { name: 'Robusta (Roboto Slab)', family: 'Roboto Slab' },
       { name: 'Código (Source Code Pro)', family: 'Source Code Pro' },
-      // --- 5 NUEVAS ---
       { name: 'Clásica (Lato)', family: 'Lato' },
       { name: 'Legible (Open Sans)', family: 'Open Sans' },
       { name: 'Serif (Merriweather)', family: 'Merriweather' },
@@ -150,19 +158,21 @@
       const [selected, setSelected] = useState(null);
       const [view, setView] = useState({ x: 0, y: 0, zoom: 0.25 });
       const [isExporting, setIsExporting] = useState(false);
+      const [isDraggingFile, setIsDraggingFile] = useState(false); // Estado para Drag & Drop
       
-      // ESTADO PANEL FLOTANTE
+      // Panel Flotante
       const [panelPos, setPanelPos] = useState({ x: window.innerWidth - 280, y: 100 });
       const [isDraggingPanel, setIsDraggingPanel] = useState(false);
       const panelDragOffset = useRef({ x: 0, y: 0 });
 
-      // ESTADO MODAL TEXTO
+      // Modal Texto
       const [modalOpen, setModalOpen] = useState(false);
       const [textState, setTextState] = useState({ 
         content: '', color: '#FFFFFF', fontSize: 120, 
         fontFamily: 'Inter', fontWeight: 'normal', fontStyle: 'normal', objRef: null 
       });
 
+      // Paneo
       const [isPanning, setIsPanning] = useState(false);
       const panRef = useRef({ startX: 0, startY: 0 });
       const [spaceDown, setSpaceDown] = useState(false);
@@ -199,7 +209,7 @@
         });
       };
 
-      // --- INIT FABRIC (OPTIMIZADO) ---
+      // --- INIT FABRIC ---
       useEffect(() => {
         const c = new fabric.Canvas(canvasElRef.current, {
           height: SLIDE_H, width: totalW,
@@ -244,7 +254,7 @@
         return () => c.dispose();
       }, [slides]);
 
-      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen]);
+      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, isDraggingFile]);
 
       // --- LOGICA PANEL FLOTANTE ---
       useEffect(() => {
@@ -271,14 +281,9 @@
       }, [isDraggingPanel]);
 
       const startDragPanel = (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        
+        e.stopPropagation(); e.preventDefault();
         const rect = e.currentTarget.parentElement.getBoundingClientRect();
-        panelDragOffset.current = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
+        panelDragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         setIsDraggingPanel(true);
       };
 
@@ -350,7 +355,7 @@
       };
       const bringGuidesTop = (c) => guidesCacheRef.current.forEach(o => c.bringToFront(o));
 
-      // --- MODAL TEXTO ---
+      // --- GESTION DE TEXTO ---
       const openNewTextModal = () => {
         setTextState({ content: '', color: '#000000', fontSize: 120, fontFamily: 'Inter', fontWeight: 'bold', fontStyle: 'normal', objRef: null });
         setModalOpen(true);
@@ -396,17 +401,7 @@
         const r = new fabric.Rect({ left: totalW/2 - 200, top: SLIDE_H/2 - 200, width: 400, height: 400, fill: '#e4e4e7' });
         fabricRef.current.add(r); fabricRef.current.setActiveObject(r); pushHistory(); fabricRef.current.requestRenderAll();
       };
-      const addImage = (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        const url = URL.createObjectURL(file);
-        fabric.Image.fromURL(url, (img) => {
-            const scale = (Math.min(SLIDE_W, SLIDE_H) * 0.5) / Math.max(img.width, img.height);
-            img.set({ left: totalW/2 - (img.width*scale)/2, top: SLIDE_H/2, scaleX: scale, scaleY: scale, uniformScaling: true });
-            fabricRef.current.add(img); fabricRef.current.setActiveObject(img); 
-            pushHistory(); fabricRef.current.requestRenderAll();
-        });
-        e.target.value = '';
-      };
+      
       const deleteItem = () => {
         const c = fabricRef.current; const act = c.getActiveObject();
         if (act) { c.remove(act); c.discardActiveObject(); pushHistory(); c.requestRenderAll(); }
@@ -414,13 +409,56 @@
       
       const layerAction = (action) => {
         const c = fabricRef.current; const act = c.getActiveObject(); if (!act) return;
-        
         if (action === 'top') c.bringToFront(act);
         else if (action === 'up') c.bringForward(act, true); 
         else if (action === 'down') c.sendBackwards(act, true); 
         else if (action === 'bottom') c.sendToBack(act);
-        
         bringGuidesTop(c); c.requestRenderAll(); pushHistory();
+      };
+
+      // --- LOGICA IMAGENES (INPUT + DRAG&DROP) ---
+      
+      // Procesa el archivo (file) y lo coloca en el canvas. 
+      // Si hay dropCoords, calcula la posición relativa al zoom/pan.
+      const processImageFile = (file, dropCoords = null) => {
+        if (!file || !file.type.startsWith('image/')) return;
+
+        const url = URL.createObjectURL(file);
+        fabric.Image.fromURL(url, (img) => {
+            const scale = (Math.min(SLIDE_W, SLIDE_H) * 0.5) / Math.max(img.width, img.height);
+            let left, top;
+
+            if (dropCoords) {
+                // Matemáticas: (Pantalla - Pan) / Zoom - Mitad_Objeto
+                left = (dropCoords.x - view.x) / view.zoom - (img.width * scale) / 2;
+                top = (dropCoords.y - view.y) / view.zoom - (img.height * scale) / 2;
+            } else {
+                left = totalW / 2 - (img.width * scale) / 2;
+                top = SLIDE_H / 2 - (img.height * scale) / 2;
+            }
+
+            img.set({ left, top, scaleX: scale, scaleY: scale, uniformScaling: true });
+            fabricRef.current.add(img); 
+            fabricRef.current.setActiveObject(img); 
+            pushHistory(); 
+            fabricRef.current.requestRenderAll();
+        });
+      };
+
+      const handleInputImage = (e) => {
+        const file = e.target.files[0];
+        processImageFile(file);
+        e.target.value = '';
+      };
+
+      const onDragOver = (e) => { e.preventDefault(); setIsDraggingFile(true); };
+      const onDragLeave = (e) => { e.preventDefault(); setIsDraggingFile(false); };
+      const onDrop = (e) => {
+        e.preventDefault(); setIsDraggingFile(false);
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            processImageFile(files[0], { x: e.clientX, y: e.clientY });
+        }
       };
 
       const handleExport = async () => {
@@ -464,10 +502,13 @@
             </div>
           </header>
 
-          {/* CANVAS */}
+          {/* CANVAS MAIN CON DRAG & DROP */}
           <main 
             ref={containerRef}
-            className={`viewport-container ${isPanning ? 'is-panning' : ''}`}
+            className={`viewport-container ${isPanning ? 'is-panning' : ''} ${isDraggingFile ? 'drag-active' : ''}`}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
             onPointerDown={e => {
                 if (spaceDown || e.button===1 || e.button===2 || e.target===containerRef.current) {
                     e.preventDefault(); setIsPanning(true); panRef.current = {x: e.clientX-view.x, y: e.clientY-view.y};
@@ -480,6 +521,15 @@
             onWheel={e => { if(e.ctrlKey) { e.preventDefault(); zoomAtCenter(e.deltaY > 0 ? 0.9 : 1.1); } }}
             onContextMenu={e => e.preventDefault()}
           >
+            {/* Feedback Visual Drag */}
+            {isDraggingFile && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+                    <div className="bg-blue-600 text-white px-6 py-3 rounded-full font-bold text-xl shadow-xl animate-bounce">
+                        Suelta la imagen aquí
+                    </div>
+                </div>
+            )}
+
             <div style={{
                 transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
                 transformOrigin: '0 0', width: totalW, height: SLIDE_H, position: 'absolute',
@@ -496,7 +546,7 @@
                 <button onClick={addRect} className="btn-icon" title="Forma"><i data-lucide="square" className="w-6 h-6"></i></button>
                 <div className="relative">
                     <button onClick={() => fileInputRef.current.click()} className="btn-icon" title="Imagen"><i data-lucide="image" className="w-6 h-6"></i></button>
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={addImage} className="hidden" />
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleInputImage} className="hidden" />
                 </div>
                 <div className="w-px h-8 bg-white/10 mx-1"></div>
                 <button onClick={() => centerView()} className="btn-icon"><i data-lucide="maximize" className="w-5 h-5"></i></button>
@@ -505,13 +555,12 @@
             </div>
           </div>
 
-          {/* PANEL PROPIEDADES FLOTANTE (DRAGGABLE) */}
+          {/* PANEL PROPIEDADES FLOTANTE */}
           {selected && !modalOpen && (
             <div 
                 className="fixed w-60 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-50 shadow-2xl animate-[fadeIn_0.2s]"
                 style={{ left: panelPos.x, top: panelPos.y }}
             >
-                {/* CABECERA (Handle para arrastrar) */}
                 <div 
                     className="flex justify-between items-center pb-2 border-b border-white/10 cursor-move-grab"
                     onPointerDown={startDragPanel}
@@ -520,7 +569,6 @@
                         <i data-lucide="grip-horizontal" className="w-4 h-4 text-zinc-500"></i>
                         <span className="text-xs font-bold text-zinc-500 uppercase select-none">Propiedades</span>
                     </div>
-                    {/* El botón de borrar no propaga evento de drag */}
                     <button 
                         onPointerDown={e => e.stopPropagation()} 
                         onClick={deleteItem} 
@@ -537,30 +585,15 @@
                     </div>
                 )}
                 
-                {/* CONTROL DE CAPAS (+ / -) */}
                 <div>
                     <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Capas</label>
                     <div className="flex justify-between items-center bg-zinc-900/50 rounded-lg p-1">
-                        
-                        <button onClick={() => layerAction('bottom')} className="btn-icon w-8 h-8" title="Enviar al fondo (≪)">
-                            <i data-lucide="chevrons-down" className="w-4 h-4"></i>
-                        </button>
-                        
+                        <button onClick={() => layerAction('bottom')} className="btn-icon w-8 h-8" title="Enviar al fondo (≪)"><i data-lucide="chevrons-down" className="w-4 h-4"></i></button>
                         <div className="w-px h-4 bg-white/10"></div>
-                        
-                        <button onClick={() => layerAction('down')} className="btn-icon w-8 h-8" title="Bajar un nivel (-)">
-                            <i data-lucide="minus" className="w-4 h-4"></i>
-                        </button>
-                        
-                        <button onClick={() => layerAction('up')} className="btn-icon w-8 h-8" title="Subir un nivel (+)">
-                            <i data-lucide="plus" className="w-4 h-4"></i>
-                        </button>
-                        
+                        <button onClick={() => layerAction('down')} className="btn-icon w-8 h-8" title="Bajar un nivel (-)"><i data-lucide="minus" className="w-4 h-4"></i></button>
+                        <button onClick={() => layerAction('up')} className="btn-icon w-8 h-8" title="Subir un nivel (+)"><i data-lucide="plus" className="w-4 h-4"></i></button>
                         <div className="w-px h-4 bg-white/10"></div>
-
-                        <button onClick={() => layerAction('top')} className="btn-icon w-8 h-8" title="Traer al frente (≫)">
-                            <i data-lucide="chevrons-up" className="w-4 h-4"></i>
-                        </button>
+                        <button onClick={() => layerAction('top')} className="btn-icon w-8 h-8" title="Traer al frente (≫)"><i data-lucide="chevrons-up" className="w-4 h-4"></i></button>
                     </div>
                 </div>
             </div>
