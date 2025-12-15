@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Panorama Studio Pro (Drag & Drop)</title>
+  <title>Panorama Studio Pro (Drag & Drop + Guía Horizontal)</title>
 
   <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -85,6 +85,7 @@
     }
     .btn-icon:hover { color: white; background: rgba(255,255,255,0.1); }
     .btn-icon:active { transform: scale(0.95); }
+    .btn-icon.active { color: #fff; background: #3b82f6; } /* Estilo activo para toggle */
     
     .cursor-move-grab { cursor: grab; }
     .cursor-move-grab:active { cursor: grabbing; }
@@ -155,6 +156,7 @@
 
       // STATES
       const [slides, setSlides] = useState(3);
+      const [showHGuide, setShowHGuide] = useState(false); // ESTADO PARA LA GUIA HORIZONTAL
       const [selected, setSelected] = useState(null);
       const [view, setView] = useState({ x: 0, y: 0, zoom: 0.25 });
       const [isExporting, setIsExporting] = useState(false);
@@ -180,7 +182,7 @@
       const totalW = useMemo(() => slides * SLIDE_W, [slides]);
 
       // --- HISTORIAL ---
-      const serialize = (c) => c.toJSON(['isGuide', 'excludeFromExport']);
+      const serialize = (c) => c.toJSON(['isGuide', 'isHGuide', 'excludeFromExport']);
       
       const pushHistory = () => {
         const c = fabricRef.current;
@@ -202,7 +204,7 @@
         h.isApplying = true;
         h.index = next;
         c.loadFromJSON(JSON.parse(h.stack[next]), () => {
-          drawGuides(c, slides);
+          drawGuides(c, slides, showHGuide);
           bringGuidesTop(c);
           c.requestRenderAll();
           h.isApplying = false;
@@ -231,7 +233,7 @@
         c.on('selection:updated', updateSel);
         c.on('selection:cleared', () => setSelected(null));
         c.on('object:modified', () => { resetGuidesColor(); pushHistory(); updateSel(); });
-        c.on('object:moving', (e) => handleSnapMoving(e, slides));
+        c.on('object:moving', (e) => handleSnapMoving(e, slides, showHGuide));
         c.on('object:scaling', (e) => handleSnapScaling(e, slides));
 
         c.on('mouse:dblclick', (e) => {
@@ -245,16 +247,26 @@
           }
         });
 
-        drawGuides(c, slides);
+        // Dibujo inicial
+        drawGuides(c, slides, showHGuide);
         c.renderAll();
         pushHistory();
         setTimeout(() => centerView(totalW), 100);
         setTimeout(() => lucide.createIcons(), 100);
 
         return () => c.dispose();
-      }, [slides]);
+      }, [slides]); // Reiniciamos canvas si cambian slides, pero si cambia showHGuide usamos el otro efecto
 
-      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, isDraggingFile]);
+      // Efecto para actualizar guías si cambia el toggle sin destruir el canvas
+      useEffect(() => {
+        if (fabricRef.current) {
+            drawGuides(fabricRef.current, slides, showHGuide);
+            bringGuidesTop(fabricRef.current);
+            fabricRef.current.requestRenderAll();
+        }
+      }, [showHGuide, slides]);
+
+      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, isDraggingFile, showHGuide]);
 
       // --- LOGICA PANEL FLOTANTE ---
       useEffect(() => {
@@ -299,40 +311,85 @@
         }
       };
 
-      // --- SNAP ENGINE ---
+      // --- SNAP ENGINE ACTUALIZADO ---
+      
       const resetGuidesColor = () => {
         let dirty = false;
         guidesCacheRef.current.forEach(o => {
+            // Restaurar estilo por defecto
             if (o.stroke !== '#3b82f6' || o.strokeWidth !== 2) {
-                o.set({ stroke: '#3b82f6', strokeWidth: 2, opacity: 0.5 }); dirty = true;
+                o.set({ stroke: '#3b82f6', strokeWidth: 2, opacity: 0.5 }); 
+                dirty = true;
             }
         });
         if (dirty) fabricRef.current.requestRenderAll();
       };
 
-      const highlightGuide = (xPos) => {
+      const highlightGuide = (targetPos, isHorizontal = false) => {
         let dirty = false;
         guidesCacheRef.current.forEach(o => {
-            if (Math.abs(o.x1 - xPos) < 1) {
+            let match = false;
+            // Verificar si es la guía correcta basada en tipo y posición
+            if (isHorizontal && o.isHGuide) {
+                // Para guía horizontal comprobamos Y
+                if (Math.abs(o.y1 - targetPos) < 1) match = true;
+            } else if (!isHorizontal && !o.isHGuide) {
+                // Para guías verticales comprobamos X
+                if (Math.abs(o.x1 - targetPos) < 1) match = true;
+            }
+
+            if (match) {
                 if (o.stroke !== '#06b6d4') { o.set({ stroke: '#06b6d4', strokeWidth: 4, opacity: 1 }); dirty = true; }
             } else {
-                if (o.stroke !== '#3b82f6') { o.set({ stroke: '#3b82f6', strokeWidth: 2, opacity: 0.5 }); dirty = true; }
+                // Mantener las otras en azul normal, pero no resetear si hay multiples activas en el mismo frame
+                // (Simplificación: reseteamos las no coincidentes a su estado base si no estaban ya)
+                if (o.stroke === '#06b6d4' && !match) { 
+                    o.set({ stroke: '#3b82f6', strokeWidth: 2, opacity: 0.5 }); dirty = true; 
+                }
             }
         });
         if (dirty) fabricRef.current.requestRenderAll();
       };
 
-      const handleSnapMoving = (e, n) => {
+      const handleSnapMoving = (e, n, useHGuide) => {
         const obj = e.target; if (!obj || obj.isGuide) return;
         const w = obj.getScaledWidth();
-        const targets = [];
-        for (let i = 0; i <= n; i++) { targets.push(i * SLIDE_W); if (i < n) targets.push(i * SLIDE_W + SLIDE_W / 2); }
+        const h = obj.getScaledHeight();
         let snapped = false;
-        targets.forEach(t => {
-            if (Math.abs(obj.left - t) < SNAP_DIST) { obj.left = t; snapped = true; highlightGuide(t); }
-            else if (Math.abs((obj.left + w) - t) < SNAP_DIST) { obj.left = t - w; snapped = true; highlightGuide(t); }
-            else if (Math.abs((obj.left + w / 2) - t) < SNAP_DIST) { obj.left = t - w / 2; snapped = true; highlightGuide(t); }
+
+        // 1. Snapping Vertical (Eje X)
+        const vTargets = [];
+        for (let i = 0; i <= n; i++) { vTargets.push(i * SLIDE_W); if (i < n) vTargets.push(i * SLIDE_W + SLIDE_W / 2); }
+        
+        vTargets.forEach(t => {
+            if (Math.abs(obj.left - t) < SNAP_DIST) { obj.left = t; snapped = true; highlightGuide(t, false); }
+            else if (Math.abs((obj.left + w) - t) < SNAP_DIST) { obj.left = t - w; snapped = true; highlightGuide(t, false); }
+            else if (Math.abs((obj.left + w / 2) - t) < SNAP_DIST) { obj.left = t - w / 2; snapped = true; highlightGuide(t, false); }
         });
+
+        // 2. Snapping Horizontal (Eje Y) si está activo
+        if (useHGuide) {
+            const midY = SLIDE_H / 2;
+            // Centro absoluto
+            if (Math.abs((obj.top + h/2) - midY) < SNAP_DIST) { 
+                obj.top = midY - h/2; 
+                snapped = true; 
+                highlightGuide(midY, true); 
+            }
+            // Borde superior
+            else if (Math.abs(obj.top - midY) < SNAP_DIST) {
+                obj.top = midY;
+                snapped = true;
+                highlightGuide(midY, true);
+            }
+            // Borde inferior
+            else if (Math.abs((obj.top + h) - midY) < SNAP_DIST) {
+                obj.top = midY - h;
+                snapped = true;
+                highlightGuide(midY, true);
+            }
+        }
+
         if (!snapped) resetGuidesColor();
       };
 
@@ -344,17 +401,20 @@
         targets.forEach(t => {
             if (Math.abs(right - t) < SNAP_DIST) {
                 const ns = (t - obj.left) / obj.width;
-                if (ns > 0) { obj.scaleX = ns; if (obj.type === 'image') obj.scaleY = ns; snapped = true; highlightGuide(t); }
+                if (ns > 0) { obj.scaleX = ns; if (obj.type === 'image') obj.scaleY = ns; snapped = true; highlightGuide(t, false); }
             }
         });
         if (!snapped) resetGuidesColor();
       };
 
       // --- HELPERS ---
-      const drawGuides = (c, n) => {
+      const drawGuides = (c, n, showH) => {
+        // Eliminar guías viejas
         const oldGuides = c.getObjects().filter(o => o.isGuide);
         oldGuides.forEach(o => c.remove(o));
         guidesCacheRef.current = [];
+
+        // Guías Verticales (Límites y centros de slides)
         for(let i=0; i<=n; i++) { 
           if (i > 0 && i < n) {
              const g = new fabric.Line([i*SLIDE_W, 0, i*SLIDE_W, SLIDE_H], {
@@ -364,7 +424,19 @@
              c.add(g); guidesCacheRef.current.push(g);
           }
         }
+
+        // Guía Horizontal (Centro) - NUEVO
+        if (showH) {
+            const hGuide = new fabric.Line([0, SLIDE_H / 2, n * SLIDE_W, SLIDE_H / 2], {
+                stroke: '#3b82f6', strokeWidth: 2, strokeDashArray: [10, 10],
+                selectable: false, evented: false, opacity: 0.5, 
+                isGuide: true, isHGuide: true, originY: 'center'
+            });
+            c.add(hGuide);
+            guidesCacheRef.current.push(hGuide);
+        }
       };
+
       const bringGuidesTop = (c) => guidesCacheRef.current.forEach(o => c.bringToFront(o));
 
       // --- GESTION DE TEXTO ---
@@ -500,6 +572,16 @@
                         {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                 </div>
+                
+                {/* BOTON NUEVO: GUIA HORIZONTAL */}
+                <button 
+                  onClick={() => setShowHGuide(!showHGuide)} 
+                  className={`btn-icon ${showHGuide ? 'active' : ''}`}
+                  title="Guía Central Horizontal"
+                >
+                  <i data-lucide="rows" className="w-4 h-4"></i>
+                </button>
+
                 <div className="flex gap-1 border-l border-white/10 pl-2">
                     <button onClick={() => applyHistory(-1)} className="btn-icon"><i data-lucide="undo-2" className="w-4 h-4"></i></button>
                     <button onClick={() => applyHistory(1)} className="btn-icon"><i data-lucide="redo-2" className="w-4 h-4"></i></button>
