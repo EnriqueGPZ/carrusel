@@ -3,39 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Panorama Studio Pro</title>
+  <title>Panorama Studio Pro (Flotante)</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;700&family=Oswald:wght@400;700&family=Dancing+Script:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Lato:wght@400;700&family=Open+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Cabin:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
 
-  <!-- React + Babel (single-file) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Fabric + ZIP export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
-  <!-- Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* --- CORE STABILITY FIXES --- */
+    /* Bloqueo total de scroll */
     html, body {
-      width: 100vw; height: 100vh;
+      width: 100%; height: 100%;
       margin: 0; padding: 0;
-      overflow: hidden !important;
-      position: fixed;
+      position: fixed; top: 0; left: 0;
+      overflow: hidden !important; 
+      overscroll-behavior: none;
       background-color: #09090b;
       font-family: 'Inter', sans-serif;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
     #root { width: 100%; height: 100%; position: absolute; inset: 0; }
 
@@ -47,73 +42,70 @@
       background-size: 24px 24px;
       cursor: grab;
       z-index: 0;
-      touch-action: none; /* importante para pan/zoom táctil */
+      touch-action: none;
+      will-change: transform;
     }
     .viewport-container.is-panning { cursor: grabbing; }
 
-    /* UI glass */
+    /* UI Components */
     .glass-panel {
-      background: rgba(24, 24, 27, 0.85);
+      background: rgba(24, 24, 27, 0.95);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
-
-    /* Color swatches */
     .color-swatch {
-      width: 26px; height: 26px;
+      width: 32px; height: 32px;
       border-radius: 999px;
       cursor: pointer;
       border: 2px solid transparent;
-      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+      transition: transform 100ms;
     }
-    .color-swatch:hover { transform: scale(1.1); }
-    .color-swatch.active { border-color: rgba(255,255,255,0.95); box-shadow: 0 0 0 2px rgba(255,255,255,0.18); }
-
-    /* FIX: Tailwind @apply no funciona dentro de <style> con CDN */
-    .btn-icon{
+    .color-swatch.active { border-color: white; transform: scale(1.1); }
+    
+    .btn-icon {
       padding: 10px;
-      border-radius: 14px;
-      color: rgb(161 161 170); /* zinc-400 */
+      border-radius: 12px;
+      color: #a1a1aa;
       display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
-      user-select: none;
+      align-items: center; justify-content: center;
+      transition: all 0.2s;
+      cursor: pointer;
     }
-    .btn-icon:hover{
-      color: white;
-      background: rgba(255,255,255,0.10);
-    }
-    .btn-icon:active{ transform: translateY(1px); }
-    .btn-icon:disabled{
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    .btn-icon:hover { color: white; background: rgba(255,255,255,0.1); }
+    .btn-icon:active { transform: scale(0.95); }
+    
+    /* Cursor para mover panel */
+    .cursor-move-grab { cursor: grab; }
+    .cursor-move-grab:active { cursor: grabbing; }
 
-    /* Small helper badge */
-    .kbd {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.10);
-      color: rgba(255,255,255,0.8);
-      line-height: 1.4;
-      white-space: nowrap;
+    /* Modal Overlay */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      animation: fadeIn 0.2s ease-out;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px; width: 16px;
+      border-radius: 50%; background: #fff;
+      cursor: pointer; margin-top: -6px;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      width: 100%; height: 4px;
+      cursor: pointer; background: #444; border-radius: 2px;
     }
   </style>
 </head>
 
 <body>
   <div id="root"></div>
-  <div id="boot-fallback" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#09090b;color:#e4e4e7;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;z-index:9999">
-    <div style="max-width:680px;padding:24px;border:1px solid rgba(255,255,255,0.12);border-radius:18px;background:rgba(24,24,27,0.85);backdrop-filter:blur(10px)">
-      <div style="font-weight:700;font-size:16px;margin-bottom:8px">Cargando el editor…</div>
-      <div style="font-size:13px;line-height:1.45;color:rgba(228,228,231,0.8)">Si esto se queda en pantalla, abre el archivo desde un servidor local (por ejemplo con <b>python -m http.server</b>) o prueba en Chrome. Algunos navegadores bloquean librerías externas al abrir un HTML con <b>file://</b>.</div>
-    </div>
-  </div>
 
   <script type="text/babel">
     const { useEffect, useMemo, useRef, useState } = React;
@@ -121,121 +113,85 @@
     // --- CONFIG ---
     const SLIDE_W = 1080;
     const SLIDE_H = 1350;
+    const SNAP_DIST = 25; 
+    
     const COLORS = ['#000000', '#FFFFFF', '#F87171', '#FB923C', '#FBBF24', '#34D399', '#22D3EE', '#60A5FA', '#818CF8', '#A78BFA', '#E879F9', '#FB7185'];
+    
+    // LISTA DE FUENTES DISPONIBLES (ACTUALIZADA)
+    const FONTS = [
+      { name: 'Moderna (Inter)', family: 'Inter' },
+      { name: 'Elegante (Playfair)', family: 'Playfair Display' },
+      { name: 'Geométrica (Montserrat)', family: 'Montserrat' },
+      { name: 'Impacto (Oswald)', family: 'Oswald' },
+      { name: 'Manuscrita (Dancing)', family: 'Dancing Script' },
+      { name: 'Universal (Poppins)', family: 'Poppins' },
+      { name: 'Robusta (Roboto Slab)', family: 'Roboto Slab' },
+      { name: 'Código (Source Code Pro)', family: 'Source Code Pro' },
+      // --- 5 NUEVAS ---
+      { name: 'Clásica (Lato)', family: 'Lato' },
+      { name: 'Legible (Open Sans)', family: 'Open Sans' },
+      { name: 'Serif (Merriweather)', family: 'Merriweather' },
+      { name: 'Amigable (Cabin)', family: 'Cabin' },
+      { name: 'Script (Pacifico)', family: 'Pacifico' },
+    ];
 
     const clamp = (n, a, b) => Math.min(Math.max(n, a), b);
-
-    const zoomTo = (nextZoom, anchor = 'center') => {
-      const el = containerRef.current;
-      if (!el) { setView(v => ({ ...v, zoom: clamp(nextZoom, 0.05, 6) })); return; }
-
-      const rect = el.getBoundingClientRect();
-      const ax = anchor === 'cursor' && lastPointerRef.current
-        ? lastPointerRef.current.x
-        : rect.left + rect.width / 2;
-      const ay = anchor === 'cursor' && lastPointerRef.current
-        ? lastPointerRef.current.y
-        : rect.top + rect.height / 2;
-
-      setView(v => {
-        const z0 = v.zoom;
-        const z1 = clamp(nextZoom, 0.05, 6);
-
-        // Convert anchor (screen) to world coordinates
-        const wx = (ax - v.x) / z0;
-        const wy = (ay - v.y) / z0;
-
-        // Keep the same world point under the anchor after zoom
-        const nx = ax - wx * z1;
-        const ny = ay - wy * z1;
-
-        return { ...v, zoom: z1, x: nx, y: ny };
-      });
-    };
-
-    const zoomBy = (factor, anchor = 'center') => {
-      setView(v => v); // no-op to keep React happy in some browsers
-      const current = viewRef.current;
-      zoomTo(current.zoom * factor, anchor);
-    };
 
     const App = () => {
       const canvasElRef = useRef(null);
       const containerRef = useRef(null);
       const fileInputRef = useRef(null);
-
-      const fabricRef = useRef(null); // siempre apunta al canvas actual
-      const urlsToRevokeRef = useRef([]);
-
-      // Historial para Undo/Redo (ligero)
+      const fabricRef = useRef(null);
+      const guidesCacheRef = useRef([]);
       const historyRef = useRef({ stack: [], index: -1, isApplying: false });
 
+      // STATES
       const [slides, setSlides] = useState(3);
       const [selected, setSelected] = useState(null);
+      const [view, setView] = useState({ x: 0, y: 0, zoom: 0.25 });
       const [isExporting, setIsExporting] = useState(false);
+      
+      // ESTADO PANEL FLOTANTE
+      const [panelPos, setPanelPos] = useState({ x: window.innerWidth - 280, y: 100 });
+      const [isDraggingPanel, setIsDraggingPanel] = useState(false);
+      const panelDragOffset = useRef({ x: 0, y: 0 });
 
-      const \[view, setView\] = useState\(\{ x: 0, y: 0, zoom: 0\.25 \}\);
-      const viewRef = useRef({ x: 0, y: 0, zoom: 0.25 });
-      useEffect(() => { viewRef.current = view; }, [view]);
-      const lastPointerRef = useRef(null);
+      // ESTADO MODAL TEXTO
+      const [modalOpen, setModalOpen] = useState(false);
+      const [textState, setTextState] = useState({ 
+        content: '', color: '#FFFFFF', fontSize: 120, 
+        fontFamily: 'Inter', fontWeight: 'normal', fontStyle: 'normal', objRef: null 
+      });
+
       const [isPanning, setIsPanning] = useState(false);
-      const panRef = useRef({ startX: 0, startY: 0, pointerId: null });
-      const snapOverlayRef = useRef([]);
-      const snapStateRef = useRef({ xs: [], ys: [] });
+      const panRef = useRef({ startX: 0, startY: 0 });
       const [spaceDown, setSpaceDown] = useState(false);
 
       const totalW = useMemo(() => slides * SLIDE_W, [slides]);
-      const isText = !!selected && (selected.type === 'i-text' || selected.type === 'text');
 
-      // --- Helpers: serialización segura ---
-      const serialize = (c) => {
-        // Guardamos todo menos guías (que se recrean)
-        return c.toJSON(['isGuide', 'excludeFromExport']);
-      };
-
+      // --- HISTORIAL ---
+      const serialize = (c) => c.toJSON(['isGuide', 'excludeFromExport']);
+      
       const pushHistory = () => {
         const c = fabricRef.current;
-        if (!c) return;
+        if (!c || historyRef.current.isApplying) return;
+        const json = JSON.stringify(serialize(c));
         const h = historyRef.current;
-        if (h.isApplying) return;
-
-        const json = serialize(c);
-        const snap = JSON.stringify(json);
-
-        // Evitar duplicados seguidos
-        if (h.index >= 0 && h.stack[h.index] === snap) return;
-
-        // Si hemos hecho undo y luego tocamos algo, truncamos "futuro"
+        if (h.index >= 0 && h.stack[h.index] === json) return;
         h.stack = h.stack.slice(0, h.index + 1);
-        h.stack.push(snap);
+        h.stack.push(json);
         h.index = h.stack.length - 1;
-
-        // Limitar memoria
-        if (h.stack.length > 60) {
-          h.stack.shift();
-          h.index -= 1;
-        }
+        if (h.stack.length > 50) { h.stack.shift(); h.index--; }
       };
 
-      const applyHistory = (direction) => {
+      const applyHistory = (dir) => {
         const c = fabricRef.current;
-        if (!c) return;
         const h = historyRef.current;
-
-        const nextIndex = clamp(h.index + direction, 0, h.stack.length - 1);
-        if (nextIndex === h.index) return;
-
+        const next = clamp(h.index + dir, 0, h.stack.length - 1);
+        if (!c || next === h.index) return;
         h.isApplying = true;
-        h.index = nextIndex;
-
-        const json = JSON.parse(h.stack[h.index]);
-
-        // Ojo: antes de cargar, eliminamos guías; luego las recreamos
-        c.clear();
-        c.setWidth(totalW);
-        c.setHeight(SLIDE_H);
-
-        c.loadFromJSON(json, () => {
+        h.index = next;
+        c.loadFromJSON(JSON.parse(h.stack[next]), () => {
           drawGuides(c, slides);
           bringGuidesTop(c);
           c.requestRenderAll();
@@ -243,784 +199,468 @@
         });
       };
 
-      // --- Inicialización / Rebuild conservando contenido ---
+      // --- INIT FABRIC (OPTIMIZADO) ---
       useEffect(() => {
-        // Bloqueo de scroll nativo (por si acaso)
-        const preventScroll = () => window.scrollTo(0, 0);
-        window.addEventListener('scroll', preventScroll);
-
-        const prev = fabricRef.current;
-        const prevJSON = prev ? serialize(prev) : null;
-
-        if (prev) {
-          try { prev.dispose(); } catch (_) {}
-          fabricRef.current = null;
-        }
-
         const c = new fabric.Canvas(canvasElRef.current, {
-          height: SLIDE_H,
-          width: totalW,
+          height: SLIDE_H, width: totalW,
           backgroundColor: '#ffffff',
           preserveObjectStacking: true,
           selection: true,
-          stopContextMenu: true,
-          fireRightClick: true,
-          renderOnAddRemove: true
+          renderOnAddRemove: false, 
+          enableRetinaScaling: false, 
+          uniformScaling: true 
         });
-
         fabricRef.current = c;
 
-        // Selección
         const updateSel = () => {
-          const active = c.getActiveObject();
-          // Copia superficial para refrescar React, sin arrastrar referencias raras
-          setSelected(active ? {
-            type: active.type,
-            fill: active.fill,
-            textAlign: active.textAlign,
-            fontWeight: active.fontWeight,
-            fontStyle: active.fontStyle
-          } : null);
+          const act = c.getActiveObject();
+          setSelected(act ? { type: act.type, fill: act.fill } : null);
         };
-
+        
         c.on('selection:created', updateSel);
         c.on('selection:updated', updateSel);
-        c.on('selection:cleared', () => { setSelected(null); clearSnapOverlay(c); });
+        c.on('selection:cleared', () => setSelected(null));
+        c.on('object:modified', () => { resetGuidesColor(); pushHistory(); updateSel(); });
+        c.on('object:moving', (e) => handleSnapMoving(e, slides));
+        c.on('object:scaling', (e) => handleSnapScaling(e, slides));
 
-        // Texto en edición: no rompemos la cámara ni selección accidental
-        c.on('text:editing:entered', () => { c.selection = false; });
-        c.on('text:editing:exited', () => { c.selection = true; updateSel(); pushHistory(); });
-
-        // Snap + historial
-        c.on('object:moving', (e) => handleSnap(e, slides));
-        c.on('object:modified', () => { clearSnapOverlay(c); bringGuidesTop(c); pushHistory(); updateSel(); });
-        c.on('object:added', (e) => {
-          if (e?.target?.isGuide) return;
-          bringGuidesTop(c);
-          pushHistory();
-          updateSel();
-        });
-        c.on('object:removed', (e) => {
-          if (e?.target?.isGuide) return;
-          pushHistory();
-          updateSel();
+        c.on('mouse:dblclick', (e) => {
+          if (e.target && e.target.type === 'text') {
+            setTextState({
+              content: e.target.text, color: e.target.fill, fontSize: e.target.fontSize,
+              fontFamily: e.target.fontFamily, fontWeight: e.target.fontWeight, fontStyle: e.target.fontStyle,
+              objRef: e.target
+            });
+            setModalOpen(true);
+          }
         });
 
-        // Guías
         drawGuides(c, slides);
-        bringGuidesTop(c);
+        c.renderAll();
+        pushHistory();
+        setTimeout(() => centerView(totalW), 100);
+        setTimeout(() => lucide.createIcons(), 100);
 
-        // Si venimos de un canvas anterior, restaurar contenido
-        if (prevJSON) {
-          c.loadFromJSON(prevJSON, () => {
-            drawGuides(c, slides);
-            bringGuidesTop(c);
-            c.requestRenderAll();
-            pushHistory(); // snapshot inicial del estado restaurado
-          });
-        } else {
-          pushHistory(); // snapshot inicial vacío
+        return () => c.dispose();
+      }, [slides]);
+
+      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen]);
+
+      // --- LOGICA PANEL FLOTANTE ---
+      useEffect(() => {
+        const handleWindowMouseMove = (e) => {
+            if (isDraggingPanel) {
+                setPanelPos({
+                    x: clamp(e.clientX - panelDragOffset.current.x, 0, window.innerWidth - 240),
+                    y: clamp(e.clientY - panelDragOffset.current.y, 0, window.innerHeight - 300) 
+                });
+            }
+        };
+        const handleWindowMouseUp = () => {
+            setIsDraggingPanel(false);
+        };
+
+        if (isDraggingPanel) {
+            window.addEventListener('pointermove', handleWindowMouseMove);
+            window.addEventListener('pointerup', handleWindowMouseUp);
         }
-
-        // Vista inicial fit
-        setTimeout(() => centerView(totalW), 50);
-
-        // Iconos
-        setTimeout(() => { try { window.lucide && lucide.createIcons(); } catch(_) {} }, 0);
-
         return () => {
-          window.removeEventListener('scroll', preventScroll);
-          try { c.dispose(); } catch (_) {}
+            window.removeEventListener('pointermove', handleWindowMouseMove);
+            window.removeEventListener('pointerup', handleWindowMouseUp);
         };
-      }, [slides]); // rebuild al cambiar nº de slides
+      }, [isDraggingPanel]);
 
-      // Reactivar iconos cuando cambian paneles
-      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, slides, isExporting]);
+      const startDragPanel = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        
+        const rect = e.currentTarget.parentElement.getBoundingClientRect();
+        panelDragOffset.current = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        setIsDraggingPanel(true);
+      };
 
-      // Revoke object URLs
+      // --- SNAP ENGINE ---
+      const resetGuidesColor = () => {
+        let dirty = false;
+        guidesCacheRef.current.forEach(o => {
+            if (o.stroke !== '#3b82f6' || o.strokeWidth !== 2) {
+                o.set({ stroke: '#3b82f6', strokeWidth: 2, opacity: 0.5 }); dirty = true;
+            }
+        });
+        if (dirty) fabricRef.current.requestRenderAll();
+      };
+
+      const highlightGuide = (xPos) => {
+        let dirty = false;
+        guidesCacheRef.current.forEach(o => {
+            if (Math.abs(o.x1 - xPos) < 1) {
+                if (o.stroke !== '#06b6d4') { o.set({ stroke: '#06b6d4', strokeWidth: 4, opacity: 1 }); dirty = true; }
+            } else {
+                if (o.stroke !== '#3b82f6') { o.set({ stroke: '#3b82f6', strokeWidth: 2, opacity: 0.5 }); dirty = true; }
+            }
+        });
+        if (dirty) fabricRef.current.requestRenderAll();
+      };
+
+      const handleSnapMoving = (e, n) => {
+        const obj = e.target; if (!obj || obj.isGuide) return;
+        const w = obj.getScaledWidth();
+        const targets = [];
+        for (let i = 0; i <= n; i++) { targets.push(i * SLIDE_W); if (i < n) targets.push(i * SLIDE_W + SLIDE_W / 2); }
+        let snapped = false;
+        targets.forEach(t => {
+            if (Math.abs(obj.left - t) < SNAP_DIST) { obj.left = t; snapped = true; highlightGuide(t); }
+            else if (Math.abs((obj.left + w) - t) < SNAP_DIST) { obj.left = t - w; snapped = true; highlightGuide(t); }
+            else if (Math.abs((obj.left + w / 2) - t) < SNAP_DIST) { obj.left = t - w / 2; snapped = true; highlightGuide(t); }
+        });
+        if (!snapped) resetGuidesColor();
+      };
+
+      const handleSnapScaling = (e, n) => {
+        const obj = e.target; if (!obj || obj.isGuide) return;
+        const targets = []; for (let i = 0; i <= n; i++) targets.push(i * SLIDE_W); 
+        const right = obj.left + (obj.width * obj.scaleX);
+        let snapped = false;
+        targets.forEach(t => {
+            if (Math.abs(right - t) < SNAP_DIST) {
+                const ns = (t - obj.left) / obj.width;
+                if (ns > 0) { obj.scaleX = ns; if (obj.type === 'image') obj.scaleY = ns; snapped = true; highlightGuide(t); }
+            }
+        });
+        if (!snapped) resetGuidesColor();
+      };
+
+      // --- HELPERS ---
+      const drawGuides = (c, n) => {
+        const oldGuides = c.getObjects().filter(o => o.isGuide);
+        oldGuides.forEach(o => c.remove(o));
+        guidesCacheRef.current = [];
+        for(let i=0; i<=n; i++) { 
+          if (i > 0 && i < n) {
+             const g = new fabric.Line([i*SLIDE_W, 0, i*SLIDE_W, SLIDE_H], {
+                stroke: '#3b82f6', strokeWidth: 2, strokeDashArray: [10,10], 
+                selectable: false, evented: false, opacity: 0.5, isGuide: true, originX: 'center'
+             });
+             c.add(g); guidesCacheRef.current.push(g);
+          }
+        }
+      };
+      const bringGuidesTop = (c) => guidesCacheRef.current.forEach(o => c.bringToFront(o));
+
+      // --- MODAL TEXTO ---
+      const openNewTextModal = () => {
+        setTextState({ content: '', color: '#000000', fontSize: 120, fontFamily: 'Inter', fontWeight: 'bold', fontStyle: 'normal', objRef: null });
+        setModalOpen(true);
+      };
+      const handleSaveText = () => {
+        const c = fabricRef.current;
+        if (!c || !textState.content.trim()) { setModalOpen(false); return; }
+        const props = { text: textState.content, fill: textState.color, fontSize: textState.fontSize, fontFamily: textState.fontFamily, fontWeight: textState.fontWeight, fontStyle: textState.fontStyle };
+        if (textState.objRef) textState.objRef.set(props);
+        else { const t = new fabric.Text(props.text, { ...props, left: totalW / 2, top: SLIDE_H / 2, originX: 'center', originY: 'center', centeredRotation: true }); c.add(t); c.setActiveObject(t); }
+        bringGuidesTop(c); c.requestRenderAll(); pushHistory(); setModalOpen(false);
+      };
+
+      // --- TECLADO ---
       useEffect(() => {
-        return () => {
-          urlsToRevokeRef.current.forEach((u) => { try { URL.revokeObjectURL(u); } catch(_) {} });
-          urlsToRevokeRef.current = [];
+        const handleKey = (e) => {
+          if (modalOpen) return;
+          const mod = e.metaKey || e.ctrlKey;
+          if (e.key === 'Backspace' || e.key === 'Delete') deleteItem();
+          if (mod && e.key === 'z') { e.preventDefault(); e.shiftKey ? applyHistory(1) : applyHistory(-1); }
+          if (e.code === 'Space') { if (e.type === 'keydown') setSpaceDown(true); else setSpaceDown(false); }
+          if (mod && e.key === '0') { e.preventDefault(); centerView(); }
         };
-      }, []);
+        window.addEventListener('keydown', handleKey); window.addEventListener('keyup', handleKey);
+        return () => { window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', handleKey); };
+      }, [modalOpen]);
 
-      // --- Atajos teclado ---
-      useEffect(() => {
-        const onKeyDown = (e) => {
-          const c = fabricRef.current;
-          if (!c) return;
-
-          // Detectar espacio para pan (tipo Photoshop)
-          if (e.code === 'Space') {
-            setSpaceDown(true);
-            // Evitar scroll / page jump
-            e.preventDefault();
-          }
-
-          // Undo / Redo
-          const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-          const mod = isMac ? e.metaKey : e.ctrlKey;
-
-          if (mod && e.key.toLowerCase() === 'z') {
-            e.preventDefault();
-            if (e.shiftKey) applyHistory(+1); // Shift+Z => redo (Mac)
-            else applyHistory(-1);
-            return;
-          }
-          if (mod && e.key.toLowerCase() === 'y') {
-            e.preventDefault();
-            applyHistory(+1);
-            return;
-          }
-
-          // Borrar selección
-          if (e.key === 'Backspace' || e.key === 'Delete') {
-            // si estás editando texto, no borramos el objeto
-            const active = c.getActiveObject();
-            if (active && active.isEditing) return;
-            e.preventDefault();
-            deleteItem();
-          }
-
-          // Centrar vista
-          if (mod && e.key.toLowerCase() === '0') {
-            e.preventDefault();
-            centerView();
-          }
-
-          // Zoom +/- (mod + / -)
-          if (mod && (e.key === '+' || e.key === '=')) {
-            e.preventDefault();
-            zoomBy(1.1);
-          }
-          if (mod && (e.key === '-' || e.key === '_')) {
-            e.preventDefault();
-            zoomBy(1/1.1);
-          }
-        };
-
-        const onKeyUp = (e) => {
-          if (e.code === 'Space') setSpaceDown(false);
-        };
-
-        window.addEventListener('keydown', onKeyDown, { passive: false });
-        window.addEventListener('keyup', onKeyUp);
-        return () => {
-          window.removeEventListener('keydown', onKeyDown);
-          window.removeEventListener('keyup', onKeyUp);
-        };
-      }, [slides, view.zoom]);
-
-      // --- Cámara / viewport ---
+      // --- FUNCIONES VIEWPORT ---
       const centerView = (w = totalW) => {
         if (!containerRef.current) return;
-        const cw = containerRef.current.clientWidth;
-        const ch = containerRef.current.clientHeight;
-        const padding = 100;
-        const scale = Math.min((cw - padding) / w, (ch - padding) / SLIDE_H, 0.9);
-
-        setView({
-          x: (cw - (w * scale)) / 2,
-          y: (ch - (SLIDE_H * scale)) / 2,
-          zoom: scale
-        });
+        const cw = containerRef.current.clientWidth; const ch = containerRef.current.clientHeight;
+        const scale = Math.min((cw - 100) / w, (ch - 100) / SLIDE_H, 0.9);
+        setView({ x: (cw - w * scale)/2, y: (ch - SLIDE_H * scale)/2, zoom: scale });
       };
-
-      const zoomAt = (clientX, clientY, nextZoom) => {
-        // zoom alrededor del puntero (más natural)
+      const zoomAtCenter = (factor) => {
         const rect = containerRef.current.getBoundingClientRect();
-        const px = clientX - rect.left;
-        const py = clientY - rect.top;
-
-        setView(v => {
-          const prevZoom = v.zoom;
-          const scale = nextZoom / prevZoom;
-
-          const nextX = px - (px - v.x) * scale;
-          const nextY = py - (py - v.y) * scale;
-
-          return { x: nextX, y: nextY, zoom: nextZoom };
-        });
+        const nextZoom = clamp(view.zoom * factor, 0.05, 5);
+        setView(v => ({ zoom: nextZoom, x: (rect.width/2) - ((rect.width/2) - v.x) * (nextZoom / v.zoom), y: (rect.height/2) - ((rect.height/2) - v.y) * (nextZoom / v.zoom) }));
       };
 
-      const handleWheel = (e) => {
-        // Trackpad: ctrl/meta + wheel => zoom
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          const delta = -e.deltaY * 0.001;
-          const nextZoom = clamp(view.zoom + delta, 0.05, 6);
-          zoomAt(e.clientX, e.clientY, nextZoom);
-        }
+      // --- GESTION ITEMS ---
+      const addRect = () => {
+        const r = new fabric.Rect({ left: totalW/2 - 200, top: SLIDE_H/2 - 200, width: 400, height: 400, fill: '#e4e4e7' });
+        fabricRef.current.add(r); fabricRef.current.setActiveObject(r); pushHistory(); fabricRef.current.requestRenderAll();
       };
-
-      // Pan con: espacio + arrastrar, botón medio, botón derecho o arrastrar el fondo fuera del canvas
-      const shouldStartPan = (e) => {
-        const isRight = e.button === 2;
-        const isMiddle = e.button === 1;
-        const isBackground = (e.target === containerRef.current);
-        return spaceDown || isRight || isMiddle || isBackground;
-      };
-
-      const onPointerDown = (e) => {
-        if (!shouldStartPan(e)) return;
-        e.preventDefault();
-
-        setIsPanning(true);
-        panRef.current.pointerId = e.pointerId;
-        panRef.current.startX = e.clientX - view.x;
-        panRef.current.startY = e.clientY - view.y;
-
-        try { containerRef.current.setPointerCapture(e.pointerId); } catch(_) {}
-      };
-
-      const onPointerMove = (e) => {
-        lastPointerRef.current = { x: e.clientX, y: e.clientY };
-        if (!isPanning) return;
-        e.preventDefault();
-        setView(v => ({ ...v, x: e.clientX - panRef.current.startX, y: e.clientY - panRef.current.startY }));
-      };
-
-      const onPointerUp = (e) => {
-        if (!isPanning) return;
-        e.preventDefault();
-        setIsPanning(false);
-        try { containerRef.current.releasePointerCapture(panRef.current.pointerId); } catch(_) {}
-        panRef.current.pointerId = null;
-      };
-
-      const onContextMenu = (e) => e.preventDefault();
-
-      // --- Guías + snap ---
-      const drawGuides = (c, num) => {
-        // borra guías previas
-        c.getObjects().forEach(o => { if (o.isGuide) c.remove(o); });
-
-        for (let i = 1; i < num; i++) {
-          const x = i * SLIDE_W;
-          const line = new fabric.Line([x, 0, x, SLIDE_H], {
-            stroke: '#3b82f6',
-            strokeWidth: 2,
-            selectable: false,
-            evented: false,
-            strokeDashArray: [12, 12],
-            opacity: 0.5,
-            isGuide: true,
-            excludeFromExport: true
-          });
-          c.add(line);
-        }
-      };
-
-      const bringGuidesTop = (c = fabricRef.current) => {
-        if (!c) return;
-        c.getObjects().forEach(o => { if (o.isGuide) c.bringToFront(o); });
-      };
-      const clearSnapOverlay = (c) => {
-        if (!c) return;
-        const arr = snapOverlayRef.current;
-        if (arr.length) {
-          arr.forEach(o => { try { c.remove(o); } catch (_) {} });
-          snapOverlayRef.current = [];
-        }
-      };
-
-      const showSnapOverlay = (c, xs = [], ys = []) => {
-        if (!c) return;
-        clearSnapOverlay(c);
-
-        const lines = [];
-        xs.forEach(x => {
-          const l = new fabric.Line([x, 0, x, SLIDE_H], {
-            stroke: '#3b82f6',
-            strokeWidth: 4,
-            selectable: false,
-            evented: false,
-            opacity: 0.95,
-            isGuide: true,
-            isSnapOverlay: true,
-            excludeFromExport: true
-          });
-          lines.push(l);
-          c.add(l);
-        });
-        ys.forEach(y => {
-          const l = new fabric.Line([0, y, totalW, y], {
-            stroke: '#3b82f6',
-            strokeWidth: 4,
-            selectable: false,
-            evented: false,
-            opacity: 0.95,
-            isGuide: true,
-            isSnapOverlay: true,
-            excludeFromExport: true
-          });
-          lines.push(l);
-          c.add(l);
-        });
-
-        snapOverlayRef.current = lines;
-        bringGuidesTop(c);
-        c.requestRenderAll();
-      };
-
-      
-      const handleSnap = (opt, num) => {
-        const c = fabricRef.current;
-        const obj = opt.target;
-        if (!c || !obj || obj.isGuide) return;
-
-        const w = (obj.width || 0) * (obj.scaleX || 1);
-        const h = (obj.height || 0) * (obj.scaleY || 1);
-
-        // Targets: bordes y centros de cada slide + límites superiores/inferiores
-        const targetsX = [];
-        for (let i = 0; i <= num; i++) {
-          const left = i * SLIDE_W;
-          targetsX.push(left);
-          if (i < num) {
-            targetsX.push(left + SLIDE_W / 2);
-            targetsX.push(left + SLIDE_W);
-          }
-        }
-
-        const targetsY = [0, SLIDE_H / 2, SLIDE_H];
-
-        const snapDist = 22;
-        const snappedXs = [];
-        const snappedYs = [];
-
-        // --- X ---
-        for (const t of targetsX) {
-          if (Math.abs(obj.left - t) < snapDist) { obj.set({ left: t }); snappedXs.push(t); break; }
-          if (Math.abs((obj.left + w / 2) - t) < snapDist) { obj.set({ left: t - w / 2 }); snappedXs.push(t); break; }
-          if (Math.abs((obj.left + w) - t) < snapDist) { obj.set({ left: t - w }); snappedXs.push(t); break; }
-        }
-
-        // --- Y ---
-        for (const t of targetsY) {
-          if (Math.abs(obj.top - t) < snapDist) { obj.set({ top: t }); snappedYs.push(t); break; }
-          if (Math.abs((obj.top + h / 2) - t) < snapDist) { obj.set({ top: t - h / 2 }); snappedYs.push(t); break; }
-          if (Math.abs((obj.top + h) - t) < snapDist) { obj.set({ top: t - h }); snappedYs.push(t); break; }
-        }
-
-        // Overlay (más notorio): líneas sólidas cuando hay snap
-        const xs = [...new Set(snappedXs)];
-        const ys = [...new Set(snappedYs)];
-
-        const prev = snapStateRef.current;
-        const same =
-          xs.length === prev.xs.length && ys.length === prev.ys.length &&
-          xs.every((v, i) => v === prev.xs[i]) && ys.every((v, i) => v === prev.ys[i]);
-
-        if (xs.length || ys.length) {
-          // Normalizar para comparar
-          xs.sort((a,b) => a-b); ys.sort((a,b) => a-b);
-          snapStateRef.current = { xs, ys };
-          if (!same) showSnapOverlay(c, xs, ys);
-        } else {
-          snapStateRef.current = { xs: [], ys: [] };
-          clearSnapOverlay(c);
-        }
-      };
-
-
-      // --- Acciones ---
-      const addItem = (type, url = null) => {
-        const c = fabricRef.current;
-        if (!c) return;
-
-        const cx = totalW / 2;
-        const cy = SLIDE_H / 2;
-
-        if (type === 'text') {
-          const t = new fabric.IText('Edítame', {
-            left: cx - 200,
-            top: cy - 50,
-            fontFamily: 'Inter',
-            fill: '#18181b',
-            fontSize: 120,
-            fontWeight: 700,
-            selectable: true
-          });
-          c.add(t);
-          c.setActiveObject(t);
-          c.requestRenderAll();
-        } else if (type === 'rect') {
-          const r = new fabric.Rect({
-            left: cx - 250,
-            top: cy - 250,
-            width: 500,
-            height: 500,
-            fill: '#e4e4e7'
-          });
-          c.add(r);
-          c.setActiveObject(r);
-          c.requestRenderAll();
-        } else if (type === 'image' && url) {
-          fabric.Image.fromURL(url, (img) => {
-            const scale = (Math.min(SLIDE_W, SLIDE_H) / Math.max(img.width, img.height)) * 0.75;
-            img.set({
-              left: cx - (img.width * scale) / 2,
-              top: cy - (img.height * scale) / 2,
-              scaleX: scale,
-              scaleY: scale,
-              selectable: true
-            });
-            c.add(img);
-            c.setActiveObject(img);
-            bringGuidesTop(c);
-            c.requestRenderAll();
-          }, { crossOrigin: 'anonymous' });
-        }
-        bringGuidesTop(c);
-      };
-
-      const updateSelected = (prop, value) => {
-        const c = fabricRef.current;
-        if (!c) return;
-        const active = c.getActiveObject();
-        if (!active) return;
-
-        // Algunas figuras (imagen) no tienen "fill"
-        if (prop === 'fill' && (active.type === 'image' || active.type === 'group')) return;
-
-        active.set(prop, value);
-        c.requestRenderAll();
-
-        setSelected(s => ({ ...(s || {}), [prop]: value }));
-      };
-
-      const toggleStyle = (style) => {
-        const c = fabricRef.current;
-        if (!c) return;
-        const active = c.getActiveObject();
-        if (!active || !(active.type === 'i-text' || active.type === 'text')) return;
-
-        if (style === 'bold') {
-          const newVal = (active.fontWeight === 'bold' || active.fontWeight === 700) ? 'normal' : 'bold';
-          active.set('fontWeight', newVal);
-        } else if (style === 'italic') {
-          const newVal = active.fontStyle === 'italic' ? 'normal' : 'italic';
-          active.set('fontStyle', newVal);
-        }
-        c.requestRenderAll();
-        setSelected(s => ({ ...(s || {}), fontWeight: active.fontWeight, fontStyle: active.fontStyle }));
-        pushHistory();
-      };
-
-      const deleteItem = () => {
-        const c = fabricRef.current;
-        if (!c) return;
-        const active = c.getActiveObject();
-        if (active && !active.isGuide) {
-          c.remove(active);
-          c.discardActiveObject();
-          setSelected(null);
-          c.requestRenderAll();
-          pushHistory();
-        }
-      };
-
-      const layerAction = (action) => {
-        const c = fabricRef.current;
-        if (!c) return;
-        const active = c.getActiveObject();
-        if (!active) return;
-
-        if (action === 'top') c.bringToFront(active);
-        if (action === 'up') c.bringForward(active);
-        if (action === 'down') c.sendBackwards(active);
-        if (action === 'bottom') c.sendToBack(active);
-
-        bringGuidesTop(c);
-        c.requestRenderAll();
-        pushHistory();
-      };
-
-      // --- Export ---
-      const handleExport = async () => {
-        const c = fabricRef.current;
-        if (!c) return;
-        setIsExporting(true);
-
-        // Ocultar guías
-        c.getObjects().forEach(o => { if (o.excludeFromExport) o.visible = false; });
-        c.renderAll();
-
-        const zip = new JSZip();
-        const multiplier = 2; // calidad mejor (2160x2700 por slide)
-
-        try {
-          for (let i = 0; i < slides; i++) {
-            const data = c.toDataURL({
-              left: i * SLIDE_W,
-              top: 0,
-              width: SLIDE_W,
-              height: SLIDE_H,
-              format: 'png',
-              multiplier
-            });
-            zip.file(`slide-${i + 1}.png`, data.replace(/^data:image\/png;base64,/, ""), { base64: true });
-          }
-          const content = await zip.generateAsync({ type: "blob" });
-          saveAs(content, "carrusel-instagram.zip");
-        } catch (e) {
-          console.error(e);
-          alert("Error al exportar. Mira la consola para más detalle.");
-        } finally {
-          c.getObjects().forEach(o => { if (o.excludeFromExport) o.visible = true; });
-          c.renderAll();
-          setIsExporting(false);
-        }
-      };
-
-      const handlePickImage = (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
+      const addImage = (e) => {
+        const file = e.target.files[0]; if (!file) return;
         const url = URL.createObjectURL(file);
-        urlsToRevokeRef.current.push(url);
-        addItem('image', url);
+        fabric.Image.fromURL(url, (img) => {
+            const scale = (Math.min(SLIDE_W, SLIDE_H) * 0.5) / Math.max(img.width, img.height);
+            img.set({ left: totalW/2 - (img.width*scale)/2, top: SLIDE_H/2, scaleX: scale, scaleY: scale, uniformScaling: true });
+            fabricRef.current.add(img); fabricRef.current.setActiveObject(img); 
+            pushHistory(); fabricRef.current.requestRenderAll();
+        });
         e.target.value = '';
       };
+      const deleteItem = () => {
+        const c = fabricRef.current; const act = c.getActiveObject();
+        if (act) { c.remove(act); c.discardActiveObject(); pushHistory(); c.requestRenderAll(); }
+      };
+      
+      const layerAction = (action) => {
+        const c = fabricRef.current; const act = c.getActiveObject(); if (!act) return;
+        
+        if (action === 'top') c.bringToFront(act);
+        else if (action === 'up') c.bringForward(act, true); 
+        else if (action === 'down') c.sendBackwards(act, true); 
+        else if (action === 'bottom') c.sendToBack(act);
+        
+        bringGuidesTop(c); c.requestRenderAll(); pushHistory();
+      };
 
-      // --- UI ---
+      const handleExport = async () => {
+        setIsExporting(true);
+        const c = fabricRef.current;
+        guidesCacheRef.current.forEach(g => g.visible = false); c.renderAll();
+        const zip = new JSZip();
+        for (let i = 0; i < slides; i++) {
+            const data = c.toDataURL({ left: i * SLIDE_W, top: 0, width: SLIDE_W, height: SLIDE_H, format: 'png', multiplier: 1.5 });
+            zip.file(`slide-${i+1}.png`, data.split(',')[1], {base64: true});
+        }
+        guidesCacheRef.current.forEach(g => g.visible = true); c.renderAll();
+        const blob = await zip.generateAsync({type:'blob'});
+        saveAs(blob, 'panorama-carrusel.zip');
+        setIsExporting(false);
+      };
+
       return (
-        <div className="w-full h-full select-none">
-          {/* TOP BAR */}
+        <div className="w-full h-full select-none text-zinc-200">
+          
+          {/* HEADER */}
           <header className="fixed top-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
             <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-4 pointer-events-auto">
-              <div className="flex items-center gap-2 pl-3 pr-2 border-r border-white/10">
-                <div className="w-4 h-4 bg-gradient-to-tr from-indigo-500 to-pink-500 rounded-full"></div>
-                <span className="text-white font-bold text-sm tracking-tight hidden sm:block">Panorama</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-400 font-medium">SLIDES</span>
-                <select
-                  value={slides}
-                  onChange={(e) => setSlides(Number(e.target.value))}
-                  className="bg-zinc-800 text-white text-xs font-bold py-1 px-2 rounded cursor-pointer outline-none border border-transparent hover:border-zinc-600"
-                  title="Cambiar número de slides (se conserva tu diseño)"
-                >
-                  {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n} className="text-black">{n}</option>)}
-                </select>
-              </div>
-
-              <div className="hidden md:flex items-center gap-2 text-zinc-400 text-xs">
-                <span className="kbd">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Z</span>
-                <span className="kbd">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Y</span>
-                <span className="kbd">Space</span>
-                <span className="text-zinc-500">para mover</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button onClick={() => applyHistory(-1)} className="btn-icon" title="Deshacer">
-                  <i data-lucide="undo-2" className="w-5 h-5"></i>
+                <div className="flex items-center gap-2 px-3 border-r border-white/10">
+                    <div className="w-3 h-3 rounded-full bg-gradient-to-r from-pink-500 to-violet-500"></div>
+                    <span className="font-bold text-sm">Panorama</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500">SLIDES</span>
+                    <select value={slides} onChange={e => setSlides(Number(e.target.value))} className="bg-zinc-800 rounded px-2 py-1 text-xs font-bold outline-none cursor-pointer">
+                        {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                </div>
+                <div className="flex gap-1 border-l border-white/10 pl-2">
+                    <button onClick={() => applyHistory(-1)} className="btn-icon"><i data-lucide="undo-2" className="w-4 h-4"></i></button>
+                    <button onClick={() => applyHistory(1)} className="btn-icon"><i data-lucide="redo-2" className="w-4 h-4"></i></button>
+                </div>
+                <button onClick={handleExport} className="bg-white text-black px-4 py-1.5 rounded-full text-xs font-bold hover:bg-zinc-200 flex gap-2 items-center">
+                    {isExporting ? '...' : <><i data-lucide="download" className="w-3 h-3"></i> Guardar</>}
                 </button>
-                <button onClick={() => applyHistory(+1)} className="btn-icon" title="Rehacer">
-                  <i data-lucide="redo-2" className="w-5 h-5"></i>
-                </button>
-              </div>
-
-              <button
-                onClick={handleExport}
-                disabled={isExporting}
-                className="bg-white text-black px-4 py-1.5 rounded-full text-xs font-bold hover:bg-zinc-200 transition flex items-center gap-2"
-                title="Exporta un ZIP con PNGs en alta (x2)"
-              >
-                {isExporting ? <span className="animate-pulse">...</span> : <><i data-lucide="download" className="w-3 h-3"></i> <span>Guardar</span></>}
-              </button>
             </div>
           </header>
 
-          {/* MAIN VIEWPORT */}
-          <main
+          {/* CANVAS */}
+          <main 
             ref={containerRef}
-            className={"viewport-container" + (isPanning ? " is-panning" : "")}
-            onWheel={handleWheel}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            onContextMenu={onContextMenu}
+            className={`viewport-container ${isPanning ? 'is-panning' : ''}`}
+            onPointerDown={e => {
+                if (spaceDown || e.button===1 || e.button===2 || e.target===containerRef.current) {
+                    e.preventDefault(); setIsPanning(true); panRef.current = {x: e.clientX-view.x, y: e.clientY-view.y};
+                }
+            }}
+            onPointerMove={e => {
+                if (isPanning) setView(v => ({ ...v, x: e.clientX-panRef.current.x, y: e.clientY-panRef.current.y }));
+            }}
+            onPointerUp={() => setIsPanning(false)}
+            onWheel={e => { if(e.ctrlKey) { e.preventDefault(); zoomAtCenter(e.deltaY > 0 ? 0.9 : 1.1); } }}
+            onContextMenu={e => e.preventDefault()}
           >
-            <div
-              style={{
+            <div style={{
                 transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
-                transformOrigin: '0 0',
-                width: totalW,
-                height: SLIDE_H,
-                position: 'absolute',
-                boxShadow: '0 0 150px rgba(0,0,0,0.5)'
-              }}
-            >
-              <canvas ref={canvasElRef} />
-            </div>
-
-            {/* mini HUD */}
-            <div className="absolute bottom-6 right-6 glass-panel rounded-2xl px-3 py-2 text-[11px] text-zinc-300 flex items-center gap-2 pointer-events-none">
-              <i data-lucide="search" className="w-4 h-4"></i>
-              <span>{Math.round(view.zoom * 100)}%</span>
-              <span className="text-zinc-500">·</span>
-              <span className="text-zinc-500">Arrastra (Space / botón derecho)</span>
+                transformOrigin: '0 0', width: totalW, height: SLIDE_H, position: 'absolute',
+                boxShadow: '0 0 50px rgba(0,0,0,0.5)'
+            }}>
+                <canvas ref={canvasElRef} />
             </div>
           </main>
 
-          {/* BOTTOM DOCK */}
-          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
-            <div className="glass-panel p-2 rounded-2xl flex items-center gap-1 shadow-2xl pointer-events-auto">
-              <button onClick={() => addItem('text')} className="btn-icon group relative" title="Añadir texto">
-                <i data-lucide="type" className="w-6 h-6"></i>
-                <span className="absolute -top-10 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Texto</span>
-              </button>
-
-              <button onClick={() => addItem('rect')} className="btn-icon group relative" title="Añadir forma">
-                <i data-lucide="square" className="w-6 h-6"></i>
-                <span className="absolute -top-10 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Forma</span>
-              </button>
-
-              <div className="relative group" title="Añadir imagen">
-                <button className="btn-icon">
-                  <i data-lucide="image" className="w-6 h-6"></i>
-                </button>
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePickImage} className="absolute inset-0 opacity-0 cursor-pointer" />
-                <span className="absolute -top-10 left-0 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none">Imagen</span>
-              </div>
-
-              <div className="w-px h-6 bg-white/10 mx-2"></div>
-
-              <button onClick={() => centerView()} className="btn-icon group relative" title="Ajustar a pantalla (Ctrl/⌘+0)">
-                <i data-lucide="maximize" className="w-5 h-5"></i>
-              </button>
-
-              <button onClick={() => zoomBy(1/1.1)} className="btn-icon" title="Zoom - (Ctrl/⌘ -)" aria-label="Zoom -">
-                <i data-lucide="minus" className="w-5 h-5"></i>
-              </button>
-              <button onClick={() => zoomBy(1.1)} className="btn-icon" title="Zoom + (Ctrl/⌘ +)" aria-label="Zoom +">
-                <i data-lucide="plus" className="w-5 h-5"></i>
-              </button>
+          {/* DOCK */}
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40">
+            <div className="glass-panel p-2 rounded-2xl flex items-center gap-2">
+                <button onClick={openNewTextModal} className="btn-icon" title="Texto"><i data-lucide="type" className="w-6 h-6"></i></button>
+                <button onClick={addRect} className="btn-icon" title="Forma"><i data-lucide="square" className="w-6 h-6"></i></button>
+                <div className="relative">
+                    <button onClick={() => fileInputRef.current.click()} className="btn-icon" title="Imagen"><i data-lucide="image" className="w-6 h-6"></i></button>
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={addImage} className="hidden" />
+                </div>
+                <div className="w-px h-8 bg-white/10 mx-1"></div>
+                <button onClick={() => centerView()} className="btn-icon"><i data-lucide="maximize" className="w-5 h-5"></i></button>
+                <button onClick={() => zoomAtCenter(0.8)} className="btn-icon"><i data-lucide="minus" className="w-5 h-5"></i></button>
+                <button onClick={() => zoomAtCenter(1.2)} className="btn-icon"><i data-lucide="plus" className="w-5 h-5"></i></button>
             </div>
           </div>
 
-          {/* RIGHT PANEL */}
-          {selected && (
-            <div className="fixed top-24 right-6 w-64 glass-panel rounded-2xl p-4 flex flex-col gap-5 z-40 animate-in slide-in-from-right duration-300">
-              <div className="flex justify-between items-center pb-2 border-b border-white/10">
-                <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                  {isText ? 'Texto' : 'Objeto'}
-                </span>
-                <button onClick={deleteItem} className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10 transition" title="Borrar (Supr)">
-                  <i data-lucide="trash-2" className="w-4 h-4"></i>
-                </button>
-              </div>
-
-              {/* Color */}
-              <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Color</label>
-                <div className="flex flex-wrap gap-2">
-                  {COLORS.map(c => (
-                    <div
-                      key={c}
-                      onClick={() => updateSelected('fill', c)}
-                      className={'color-swatch ' + (selected?.fill === c ? 'active' : '')}
-                      style={{ backgroundColor: c }}
-                      title={c}
-                    />
-                  ))}
-                  <div className="relative w-[26px] h-[26px] rounded-full bg-gradient-to-tr from-green-400 to-blue-500 border-2 border-transparent hover:border-white transition cursor-pointer overflow-hidden">
-                    <input
-                      type="color"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      onChange={(e) => updateSelected('fill', e.target.value)}
-                      title="Color personalizado"
-                    />
-                  </div>
+          {/* PANEL PROPIEDADES FLOTANTE (DRAGGABLE) */}
+          {selected && !modalOpen && (
+            <div 
+                className="fixed w-60 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-50 shadow-2xl animate-[fadeIn_0.2s]"
+                style={{ left: panelPos.x, top: panelPos.y }}
+            >
+                {/* CABECERA (Handle para arrastrar) */}
+                <div 
+                    className="flex justify-between items-center pb-2 border-b border-white/10 cursor-move-grab"
+                    onPointerDown={startDragPanel}
+                >
+                    <div className="flex items-center gap-2">
+                        <i data-lucide="grip-horizontal" className="w-4 h-4 text-zinc-500"></i>
+                        <span className="text-xs font-bold text-zinc-500 uppercase select-none">Propiedades</span>
+                    </div>
+                    {/* El botón de borrar no propaga evento de drag */}
+                    <button 
+                        onPointerDown={e => e.stopPropagation()} 
+                        onClick={deleteItem} 
+                        className="text-red-400 p-1 hover:bg-red-400/10 rounded" 
+                        title="Eliminar"
+                    >
+                        <i data-lucide="trash-2" className="w-4 h-4"></i>
+                    </button>
                 </div>
-                {!isText && (
-                  <div className="text-[11px] text-zinc-500 mt-2">
-                    Nota: las imágenes no tienen “fill”.
-                  </div>
+                
+                {selected.type === 'text' && (
+                    <div className="text-xs text-zinc-400 italic text-center py-2 bg-zinc-800/50 rounded">
+                        Doble clic para editar texto
+                    </div>
                 )}
-              </div>
+                
+                {/* CONTROL DE CAPAS (+ / -) */}
+                <div>
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Capas</label>
+                    <div className="flex justify-between items-center bg-zinc-900/50 rounded-lg p-1">
+                        
+                        <button onClick={() => layerAction('bottom')} className="btn-icon w-8 h-8" title="Enviar al fondo (≪)">
+                            <i data-lucide="chevrons-down" className="w-4 h-4"></i>
+                        </button>
+                        
+                        <div className="w-px h-4 bg-white/10"></div>
+                        
+                        <button onClick={() => layerAction('down')} className="btn-icon w-8 h-8" title="Bajar un nivel (-)">
+                            <i data-lucide="minus" className="w-4 h-4"></i>
+                        </button>
+                        
+                        <button onClick={() => layerAction('up')} className="btn-icon w-8 h-8" title="Subir un nivel (+)">
+                            <i data-lucide="plus" className="w-4 h-4"></i>
+                        </button>
+                        
+                        <div className="w-px h-4 bg-white/10"></div>
 
-              {/* Texto */}
-              {isText && (
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase block">Tipografía</label>
-
-                  <div className="flex bg-zinc-900/50 p-1 rounded-lg">
-                    {['left','center','right'].map(align => (
-                      <button
-                        key={align}
-                        onClick={() => updateSelected('textAlign', align)}
-                        className={
-                          'flex-1 p-1.5 rounded transition flex justify-center ' +
-                          (selected?.textAlign === align ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300')
-                        }
-                        title={'Alinear ' + align}
-                      >
-                        {align === 'left' && <i data-lucide="align-left" className="w-4 h-4"></i>}
-                        {align === 'center' && <i data-lucide="align-center" className="w-4 h-4"></i>}
-                        {align === 'right' && <i data-lucide="align-right" className="w-4 h-4"></i>}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => toggleStyle('bold')}
-                      className={'flex-1 p-2 rounded-lg text-xs font-bold border transition ' + (selected?.fontWeight === 'bold' ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500')}
-                      title="Negrita"
-                    >
-                      Bold
-                    </button>
-                    <button
-                      onClick={() => toggleStyle('italic')}
-                      className={'flex-1 p-2 rounded-lg text-xs italic border transition ' + (selected?.fontStyle === 'italic' ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500')}
-                      title="Cursiva"
-                    >
-                      Italic
-                    </button>
-                  </div>
+                        <button onClick={() => layerAction('top')} className="btn-icon w-8 h-8" title="Traer al frente (≫)">
+                            <i data-lucide="chevrons-up" className="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
-              )}
-
-              {/* Capas */}
-              <div className="pt-2 border-t border-white/10">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Capas</label>
-                <div className="grid grid-cols-4 gap-1">
-                  <button onClick={() => layerAction('top')} className="p-2 bg-zinc-800 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white flex justify-center" title="Al frente">
-                    <i data-lucide="move-up" className="w-4 h-4"></i>
-                  </button>
-                  <button onClick={() => layerAction('up')} className="p-2 bg-zinc-800 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white flex justify-center" title="Subir">
-                    <i data-lucide="chevron-up" className="w-4 h-4"></i>
-                  </button>
-                  <button onClick={() => layerAction('down')} className="p-2 bg-zinc-800 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white flex justify-center" title="Bajar">
-                    <i data-lucide="chevron-down" className="w-4 h-4"></i>
-                  </button>
-                  <button onClick={() => layerAction('bottom')} className="p-2 bg-zinc-800 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white flex justify-center" title="Al fondo">
-                    <i data-lucide="move-down" className="w-4 h-4"></i>
-                  </button>
-                </div>
-              </div>
-
-              {/* Ayuda rápida */}
-              <div className="text-[11px] text-zinc-500 pt-2 border-t border-white/10 space-y-1">
-                <div><span className="kbd">Supr</span> borrar objeto</div>
-                <div><span className="kbd">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Z</span> deshacer</div>
-                <div><span className="kbd">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+0</span> ajustar vista</div>
-              </div>
             </div>
           )}
+
+          {/* MODAL EDITAR TEXTO */}
+          {modalOpen && (
+            <div className="modal-overlay">
+                <div className="glass-panel p-6 rounded-3xl w-[90%] max-w-lg flex flex-col gap-5 shadow-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
+                    <h2 className="text-lg font-bold text-white text-center tracking-tight">
+                        {textState.objRef ? 'Editar Texto' : 'Nuevo Texto'}
+                    </h2>
+                    
+                    <textarea 
+                        autoFocus
+                        value={textState.content}
+                        onChange={e => setTextState({...textState, content: e.target.value})}
+                        style={{ fontFamily: textState.fontFamily, fontWeight: textState.fontWeight, fontStyle: textState.fontStyle }}
+                        placeholder="Escribe tu texto aquí..."
+                        className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-2xl outline-none focus:border-blue-500 min-h-[120px] resize-none text-center"
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase">Tipografía</label>
+                            <div className="flex flex-col gap-1 bg-black/20 p-1 rounded-xl max-h-40 overflow-y-auto">
+                                {FONTS.map(f => (
+                                    <button
+                                        key={f.name}
+                                        onClick={() => setTextState({...textState, fontFamily: f.family})}
+                                        className={`px-3 py-2 text-left rounded-lg text-sm transition ${textState.fontFamily === f.family ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:bg-white/5'}`}
+                                        style={{ fontFamily: f.family }}
+                                    >
+                                        {f.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                            <div>
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Estilo</label>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => setTextState({...textState, fontWeight: textState.fontWeight === 'bold' ? 'normal' : 'bold'})}
+                                        className={`flex-1 p-2 rounded-lg border transition font-bold ${textState.fontWeight === 'bold' ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'}`}
+                                    >B</button>
+                                    <button 
+                                        onClick={() => setTextState({...textState, fontStyle: textState.fontStyle === 'italic' ? 'normal' : 'italic'})}
+                                        className={`flex-1 p-2 rounded-lg border transition italic ${textState.fontStyle === 'italic' ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'}`}
+                                    >I</button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block flex justify-between">
+                                    <span>Tamaño</span> <span>{textState.fontSize}px</span>
+                                </label>
+                                <input 
+                                    type="range" min="40" max="400" step="10"
+                                    value={textState.fontSize}
+                                    onChange={e => setTextState({...textState, fontSize: parseInt(e.target.value)})}
+                                    className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-white"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Color</label>
+                        <div className="flex flex-wrap gap-2 justify-center bg-black/20 p-2 rounded-xl">
+                            {COLORS.map(c => (
+                                <div 
+                                    key={c}
+                                    onClick={() => setTextState({...textState, color: c})}
+                                    className={`color-swatch ${textState.color === c ? 'active' : ''}`}
+                                    style={{ backgroundColor: c }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2 border-t border-white/10">
+                        <button onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-zinc-400 hover:bg-white/5 transition">
+                            Cancelar
+                        </button>
+                        <button onClick={handleSaveText} className="flex-1 py-3 rounded-xl font-bold bg-white text-black hover:bg-zinc-200 transition">
+                            {textState.objRef ? 'Actualizar Texto' : 'Añadir Texto'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+          )}
+
         </div>
       );
     };
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
-    // Quitar fallback si ha montado
-    setTimeout(() => { const el=document.getElementById('boot-fallback'); if(el) el.remove(); }, 50);
   </script>
 </body>
 </html>
