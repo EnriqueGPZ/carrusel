@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Panorama Studio Pro (Shape Fill)</title>
+  <title>Panorama Studio Pro (Duplicar)</title>
 
   <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -172,7 +172,7 @@
       const canvasElRef = useRef(null);
       const containerRef = useRef(null);
       const fileInputRef = useRef(null);
-      const shapeFileInputRef = useRef(null); // Ref para subir imagen a forma
+      const shapeFileInputRef = useRef(null);
       const fabricRef = useRef(null);
       const guidesCacheRef = useRef([]);
       const historyRef = useRef({ stack: [], index: -1, isApplying: false });
@@ -273,33 +273,26 @@
         c.on('selection:updated', updateSel);
         c.on('selection:cleared', () => { setSelected(null); });
         
-        // --- LOGICA MOVIMIENTO MARCO VS CONTENIDO ---
         c.on('object:moving', (e) => { 
             const obj = e.target;
             handleSnapMoving(e, slides, showHGuide); 
             updateSelProps(obj);
 
-            // Si es una Forma Rellena (Imagen con Marco) y NO estamos editando el interior (es decir, movemos el marco)
             if (obj.isShapeFill && !obj.isEditingContent && obj.clipPath) {
-                // Sincronizar el clipPath (máscara) con el movimiento de la imagen
-                // Necesitamos saber cuánto se movió desde el último frame
                 if (obj._lastLeft === undefined) obj._lastLeft = obj.left;
                 if (obj._lastTop === undefined) obj._lastTop = obj.top;
 
                 const dx = obj.left - obj._lastLeft;
                 const dy = obj.top - obj._lastTop;
 
-                // Movemos la máscara manualmente porque tiene absolutePositioned: true
                 obj.clipPath.left += dx;
                 obj.clipPath.top += dy;
                 
-                // Actualizar trackers
                 obj._lastLeft = obj.left;
                 obj._lastTop = obj.top;
             }
         });
         
-        // Resetear trackers al soltar
         c.on('mouse:down', (e) => {
             if (e.target) {
                 e.target._lastLeft = e.target.left;
@@ -344,7 +337,6 @@
 
       useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, previewOpen, isDraggingFile, showHGuide]);
 
-      // --- LOGICA SHAPE FILL (RELLENAR FORMA) ---
       const handleShapeFillInput = (e) => {
           const file = e.target.files[0];
           if (!file) return;
@@ -354,7 +346,6 @@
           
           if (act) {
               fabric.Image.fromURL(url, (img) => {
-                  // 1. Configurar imagen
                   const scaleX = act.getScaledWidth() / img.width;
                   const scaleY = act.getScaledHeight() / img.height;
                   const scale = Math.max(scaleX, scaleY);
@@ -364,26 +355,23 @@
                       top: act.top,
                       scaleX: scale,
                       scaleY: scale,
-                      isShapeFill: true, // Flag personalizado
-                      isEditingContent: false // Por defecto movemos el marco
+                      isShapeFill: true, 
+                      isEditingContent: false 
                   });
 
-                  // 2. Centrar imagen en la forma original
                   img.setPositionByOrigin(act.getCenterPoint(), 'center', 'center');
 
-                  // 3. Crear Máscara (Clonar la forma)
                   act.clone((cloned) => {
                       cloned.set({
-                          absolutePositioned: true, // Clave: La máscara vive en coordenadas del mundo
+                          absolutePositioned: true, 
                           fill: 'transparent',
-                          stroke: 'transparent', // Ocultamos borde original en la mascara
+                          stroke: 'transparent',
                           selectable: false,
                           evented: false
                       });
                       
                       img.clipPath = cloned;
                       
-                      // 4. Reemplazar
                       const idx = c.getObjects().indexOf(act);
                       c.insertAt(img, idx);
                       c.remove(act);
@@ -391,7 +379,6 @@
                       c.requestRenderAll();
                       pushHistory();
                       
-                      // Limpiar input
                       e.target.value = '';
                   });
               });
@@ -403,13 +390,53 @@
           const act = c.getActiveObject();
           if (act && act.isShapeFill) {
               act.isEditingContent = !act.isEditingContent;
-              // Reset trackers to avoid jumps
               act._lastLeft = act.left;
               act._lastTop = act.top;
-              
               setSelected(prev => ({ ...prev, isEditingContent: act.isEditingContent }));
               c.requestRenderAll();
           }
+      };
+
+      // --- DUPLICAR OBJETO ---
+      const duplicateItem = () => {
+          const c = fabricRef.current;
+          const act = c.getActiveObject();
+          if (!act) return;
+
+          act.clone((cloned) => {
+            c.discardActiveObject();
+            cloned.set({
+              left: act.left + 20,
+              top: act.top + 20,
+              evented: true
+            });
+
+            if (act.type === 'activeSelection') {
+                cloned.canvas = c;
+                cloned.forEachObject((obj) => {
+                    c.add(obj);
+                });
+                cloned.setCoords();
+            } else {
+                c.add(cloned);
+            }
+            
+            // Si es ShapeFill, clonar también propiedades personalizadas
+            if (act.isShapeFill) {
+                cloned.set({ isShapeFill: true, isEditingContent: false });
+                if(act.clipPath) {
+                    act.clipPath.clone((clonedClip) => {
+                        clonedClip.set({ left: cloned.left, top: cloned.top, absolutePositioned: true });
+                        cloned.clipPath = clonedClip;
+                        c.requestRenderAll();
+                    });
+                }
+            }
+
+            c.setActiveObject(cloned);
+            c.requestRenderAll();
+            pushHistory();
+          });
       };
 
       // --- LOGICA PANEL FLOTANTE ---
@@ -440,7 +467,6 @@
         setIsDraggingPanel(true);
       };
 
-      // --- MANIPULACIÓN NUMÉRICA ---
       const handleNumChange = (key, val) => {
         const c = fabricRef.current;
         const act = c.getActiveObject();
@@ -707,6 +733,7 @@
 
           if (e.key === 'Backspace' || e.key === 'Delete') deleteItem();
           if (mod && e.key === 'z') { e.preventDefault(); e.shiftKey ? applyHistory(1) : applyHistory(-1); }
+          if (mod && e.key === 'd') { e.preventDefault(); duplicateItem(); } // Ctrl+D para duplicar
           if (e.code === 'Space') { if (e.type === 'keydown') setSpaceDown(true); else setSpaceDown(false); }
           if (mod && e.key === '0') { e.preventDefault(); centerView(); }
 
@@ -884,7 +911,10 @@
                         <i data-lucide="grip-horizontal" className="w-4 h-4 text-zinc-500"></i>
                         <span className="text-xs font-bold text-zinc-500 uppercase select-none">Propiedades</span>
                     </div>
-                    <button onPointerDown={e => e.stopPropagation()} onClick={deleteItem} className="text-red-400 p-1 hover:bg-red-400/10 rounded" title="Eliminar"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
+                    <div className="flex items-center gap-1">
+                        <button onPointerDown={e => e.stopPropagation()} onClick={duplicateItem} className="text-zinc-400 p-1 hover:bg-white/10 rounded" title="Duplicar"><i data-lucide="copy" className="w-4 h-4"></i></button>
+                        <button onPointerDown={e => e.stopPropagation()} onClick={deleteItem} className="text-red-400 p-1 hover:bg-red-400/10 rounded" title="Eliminar"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -937,7 +967,6 @@
                     </div>
                 )}
 
-                {/* --- NUEVO: CONTROLES PARA FORMAS RELLENAS DE IMAGEN --- */}
                 {selected.isShapeFill && (
                     <div>
                          <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Edición de Forma</label>
@@ -955,7 +984,6 @@
                     <div className="text-xs text-zinc-400 italic text-center py-2 bg-zinc-800/50 rounded">Doble clic para editar texto</div>
                 )}
                 
-                {/* --- BOTON DE RELLENAR FORMA --- */}
                 {(selected.type === 'rect' || selected.type === 'circle' || selected.type === 'triangle') && (
                     <div className="flex flex-col gap-3">
                         <div>
