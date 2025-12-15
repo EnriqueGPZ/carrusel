@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Panorama Studio Pro (Masking)</title>
+  <title>Panorama Studio Pro (Preview IG)</title>
 
   <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -121,8 +121,8 @@
     /* Modal */
     .modal-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
       display: flex; align-items: center; justify-content: center;
       z-index: 100;
       animation: fadeIn 0.2s ease-out;
@@ -140,6 +140,10 @@
       width: 100%; height: 4px;
       cursor: pointer; background: #444; border-radius: 2px;
     }
+
+    /* Scrollbar oculta para el preview */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 
@@ -198,6 +202,11 @@
         content: '', color: '#FFFFFF', fontSize: 120, 
         fontFamily: 'Inter', fontWeight: 'normal', fontStyle: 'normal', objRef: null 
       });
+
+      // --- ESTADOS PARA PREVIEW (IG) ---
+      const [previewOpen, setPreviewOpen] = useState(false);
+      const [previewImg, setPreviewImg] = useState(null);
+      const [previewSlide, setPreviewSlide] = useState(0);
 
       // Paneo
       const [isPanning, setIsPanning] = useState(false);
@@ -305,7 +314,7 @@
         }
       }, [showHGuide, slides]);
 
-      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, isDraggingFile, showHGuide]);
+      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, previewOpen, isDraggingFile, showHGuide]);
 
       // --- LOGICA PANEL FLOTANTE ---
       useEffect(() => {
@@ -422,7 +431,6 @@
         const act = c.getActiveObject();
         if (!act || act.type !== 'image') return;
 
-        // Toggle: Si ya tiene máscara, la quitamos
         if (act.clipPath) {
             act.clipPath = null;
             act.dirty = true;
@@ -432,30 +440,26 @@
             return;
         }
 
-        // 1. Detectar Slide
         const center = act.getCenterPoint();
         const slideIndex = Math.floor(center.x / SLIDE_W);
         const slideLeft = slideIndex * SLIDE_W;
 
-        // 2. Escalar para cubrir hueco (igual que fill)
         const scaleX = SLIDE_W / act.width;
         const scaleY = SLIDE_H / act.height;
         const scale = Math.max(scaleX, scaleY);
         
-        // Centramos imagen primero
         act.set({
             scaleX: scale, scaleY: scale,
             left: slideLeft + (SLIDE_W - act.width * scale) / 2,
             top: (SLIDE_H - act.height * scale) / 2
         });
 
-        // 3. Crear Máscara ESTÁTICA (absolutePositioned)
         const clipRect = new fabric.Rect({
             left: slideLeft,
             top: 0,
             width: SLIDE_W,
             height: SLIDE_H,
-            absolutePositioned: true // <--- LA CLAVE: La máscara se queda fija en el canvas
+            absolutePositioned: true 
         });
 
         act.clipPath = clipRect;
@@ -466,6 +470,29 @@
         setSelected(prev => ({ ...prev, hasMask: true }));
         setSelProps({ x: Math.round(act.left), y: Math.round(act.top), w: Math.round(act.getScaledWidth()), h: Math.round(act.getScaledHeight()) });
         pushHistory();
+      };
+
+      // --- GENERAR PREVIEW IG ---
+      const handleOpenPreview = () => {
+          const c = fabricRef.current;
+          // Ocultar guias temporalmente
+          guidesCacheRef.current.forEach(g => g.visible = false);
+          c.renderAll();
+          
+          // Exportar TODO el canvas
+          const data = c.toDataURL({ format: 'png', multiplier: 0.5 }); // 0.5 para velocidad
+          
+          // Restaurar guias
+          guidesCacheRef.current.forEach(g => g.visible = true);
+          c.renderAll();
+
+          setPreviewImg(data);
+          setPreviewSlide(0);
+          setPreviewOpen(true);
+      };
+
+      const handlePreviewNav = (dir) => {
+          setPreviewSlide(prev => clamp(prev + dir, 0, slides - 1));
       };
 
       // --- CAMBIAR COLOR ---
@@ -588,7 +615,7 @@
       // --- TECLADO ---
       useEffect(() => {
         const handleKey = (e) => {
-          if (modalOpen) return;
+          if (modalOpen || previewOpen) return;
           const c = fabricRef.current;
           const act = c?.getActiveObject();
           const mod = e.metaKey || e.ctrlKey;
@@ -617,7 +644,7 @@
         };
         window.addEventListener('keydown', handleKey); window.addEventListener('keyup', handleKey);
         return () => { window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', handleKey); };
-      }, [modalOpen]);
+      }, [modalOpen, previewOpen]);
 
       // --- FUNCIONES VIEWPORT ---
       const centerView = (w = totalW) => {
@@ -710,9 +737,15 @@
                         {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                 </div>
-                <button onClick={() => setShowHGuide(!showHGuide)} className={`btn-icon ${showHGuide ? 'active' : ''}`} title="Guía Central Horizontal">
-                  <i data-lucide="rows" className="w-4 h-4"></i>
-                </button>
+                <div className="flex gap-2">
+                    <button onClick={() => setShowHGuide(!showHGuide)} className={`btn-icon ${showHGuide ? 'active' : ''}`} title="Guía Central Horizontal">
+                    <i data-lucide="rows" className="w-4 h-4"></i>
+                    </button>
+                    {/* Botón Preview IG */}
+                    <button onClick={handleOpenPreview} className="btn-icon" title="Vista Previa Instagram">
+                        <i data-lucide="eye" className="w-4 h-4"></i>
+                    </button>
+                </div>
                 <div className="flex gap-1 border-l border-white/10 pl-2">
                     <button onClick={() => applyHistory(-1)} className="btn-icon"><i data-lucide="undo-2" className="w-4 h-4"></i></button>
                     <button onClick={() => applyHistory(1)} className="btn-icon"><i data-lucide="redo-2" className="w-4 h-4"></i></button>
@@ -762,7 +795,7 @@
             </div>
           </div>
 
-          {selected && !modalOpen && (
+          {selected && !modalOpen && !previewOpen && (
             <div 
                 className="fixed w-80 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-50 shadow-2xl animate-[fadeIn_0.2s]"
                 style={{ left: panelPos.x, top: panelPos.y }}
@@ -810,7 +843,6 @@
                      </div>
                 </div>
 
-                {/* --- NUEVO: BOTONES DE AJUSTE PARA IMAGENES --- */}
                 {selected.type === 'image' && (
                     <div>
                          <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Ajuste Rápido</label>
@@ -855,6 +887,7 @@
             </div>
           )}
 
+          {/* --- MODAL DE TEXTO --- */}
           {modalOpen && (
             <div className="modal-overlay">
                 <div className="glass-panel p-6 rounded-3xl w-[90%] max-w-lg flex flex-col gap-5 shadow-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
@@ -904,6 +937,99 @@
                     </div>
                 </div>
             </div>
+          )}
+
+          {/* --- MODAL PREVIEW INSTAGRAM --- */}
+          {previewOpen && (
+              <div className="modal-overlay" onClick={() => setPreviewOpen(false)}>
+                  <div className="relative flex items-center justify-center" onClick={e => e.stopPropagation()}>
+                        
+                        {/* Botón Cerrar */}
+                        <button onClick={() => setPreviewOpen(false)} className="absolute -top-12 right-0 text-white/50 hover:text-white transition">
+                            <i data-lucide="x" className="w-8 h-8"></i>
+                        </button>
+
+                        {/* Controles de Navegación Externos */}
+                        <button onClick={() => handlePreviewNav(-1)} className={`absolute -left-16 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition ${previewSlide === 0 ? 'opacity-30 pointer-events-none' : ''}`}>
+                             <i data-lucide="chevron-left" className="w-8 h-8"></i>
+                        </button>
+                        <button onClick={() => handlePreviewNav(1)} className={`absolute -right-16 p-4 rounded-full bg-white/10 hover:bg-white/20 text-white transition ${previewSlide === slides - 1 ? 'opacity-30 pointer-events-none' : ''}`}>
+                             <i data-lucide="chevron-right" className="w-8 h-8"></i>
+                        </button>
+
+                        {/* Marco del Teléfono */}
+                        <div className="w-[350px] bg-white rounded-[40px] border-[10px] border-zinc-800 overflow-hidden shadow-2xl relative">
+                             {/* Header IG */}
+                             <div className="flex justify-between items-center p-3 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 rounded-full p-[2px]">
+                                        <div className="w-full h-full bg-white rounded-full border border-white"></div>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-black leading-tight">mi_panorama</span>
+                                        <span className="text-[10px] text-gray-500 leading-tight">Instagram</span>
+                                    </div>
+                                </div>
+                                <i data-lucide="more-horizontal" className="w-5 h-5 text-black"></i>
+                             </div>
+
+                             {/* Area de Imagen (Viewport 4:5) */}
+                             <div className="w-full aspect-[4/5] bg-gray-100 overflow-hidden relative">
+                                  {previewImg && (
+                                      <div 
+                                        className="h-full flex transition-transform duration-300 ease-out"
+                                        style={{ 
+                                            width: `${slides * 100}%`,
+                                            transform: `translateX(-${(previewSlide * 100) / slides}%)`
+                                        }}
+                                      >
+                                          <img src={previewImg} className="h-full w-full object-cover" style={{ objectFit: 'fill' }} />
+                                      </div>
+                                  )}
+
+                                  {/* Indicador de número de foto (1/3) estilo IG */}
+                                  <div className="absolute top-3 right-3 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                                      {previewSlide + 1}/{slides}
+                                  </div>
+                             </div>
+
+                             {/* Actions Bar */}
+                             <div className="p-3">
+                                 <div className="flex justify-between items-center mb-2">
+                                     <div className="flex gap-4">
+                                         <i data-lucide="heart" className="w-6 h-6 text-black"></i>
+                                         <i data-lucide="message-circle" className="w-6 h-6 text-black"></i>
+                                         <i data-lucide="send" className="w-6 h-6 text-black"></i>
+                                     </div>
+                                     <i data-lucide="bookmark" className="w-6 h-6 text-black"></i>
+                                 </div>
+                                 
+                                 {/* Dots de Paginación */}
+                                 <div className="flex justify-center gap-1 mb-2">
+                                     {Array.from({length: slides}).map((_, i) => (
+                                         <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i === previewSlide ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                                     ))}
+                                 </div>
+
+                                 <div className="text-xs font-bold text-black mb-1">2,453 Me gusta</div>
+                                 <div className="text-xs text-black"><span className="font-bold">mi_panorama</span> Mira este carrusel increíble creado con Panorama Studio 🔥</div>
+                                 <div className="text-[10px] text-gray-400 mt-1 uppercase">HACE 2 HORAS</div>
+                             </div>
+
+                             {/* Bottom Nav Simulado */}
+                             <div className="border-t border-gray-100 p-3 flex justify-around items-center">
+                                 <i data-lucide="home" className="w-6 h-6 text-black"></i>
+                                 <i data-lucide="search" className="w-6 h-6 text-gray-400"></i>
+                                 <i data-lucide="plus-square" className="w-6 h-6 text-gray-400"></i>
+                                 <i data-lucide="video" className="w-6 h-6 text-gray-400"></i>
+                                 <div className="w-6 h-6 bg-gray-300 rounded-full"></div>
+                             </div>
+
+                             {/* Barra inferior iPhone */}
+                             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full"></div>
+                        </div>
+                  </div>
+              </div>
           )}
 
         </div>
