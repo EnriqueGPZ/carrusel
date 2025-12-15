@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Panorama Studio Pro (Drag & Drop + Guía Horizontal)</title>
+  <title>Panorama Studio Pro (Precisión Numérica)</title>
 
   <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,10 +50,8 @@
       transition: box-shadow 0.2s, background-color 0.2s;
     }
     .viewport-container.is-panning { cursor: grabbing; }
-
-    /* Estilo cuando se arrastra un archivo encima */
     .viewport-container.drag-active {
-        box-shadow: inset 0 0 0 4px #3b82f6; /* Borde azul interno */
+        box-shadow: inset 0 0 0 4px #3b82f6;
         background-color: rgba(59, 130, 246, 0.1);
     }
 
@@ -75,8 +73,8 @@
     .color-swatch.active { border-color: white; transform: scale(1.1); box-shadow: 0 0 8px rgba(255,255,255,0.5); }
     
     .btn-icon {
-      padding: 10px;
-      border-radius: 12px;
+      padding: 8px;
+      border-radius: 8px;
       color: #a1a1aa;
       display: inline-flex;
       align-items: center; justify-content: center;
@@ -85,10 +83,24 @@
     }
     .btn-icon:hover { color: white; background: rgba(255,255,255,0.1); }
     .btn-icon:active { transform: scale(0.95); }
-    .btn-icon.active { color: #fff; background: #3b82f6; } /* Estilo activo para toggle */
+    .btn-icon.active { color: #fff; background: #3b82f6; }
     
     .cursor-move-grab { cursor: grab; }
     .cursor-move-grab:active { cursor: grabbing; }
+
+    /* Inputs numéricos */
+    .num-input-group {
+        display: flex; flex-direction: column; gap: 2px;
+    }
+    .num-input-label {
+        font-size: 9px; font-weight: 700; color: #71717a; text-transform: uppercase;
+    }
+    .num-input {
+        background: #18181b; border: 1px solid #3f3f46; color: white;
+        border-radius: 6px; padding: 4px 6px; font-size: 11px; width: 100%;
+        outline: none; transition: border-color 0.2s;
+    }
+    .num-input:focus { border-color: #3b82f6; }
 
     /* Modal */
     .modal-overlay {
@@ -124,7 +136,7 @@
     // --- CONFIG ---
     const SLIDE_W = 1080;
     const SLIDE_H = 1350;
-    const SNAP_DIST = 25; 
+    const SNAP_DIST = 20; 
     
     const COLORS = ['#000000', '#FFFFFF', '#F87171', '#FB923C', '#FBBF24', '#34D399', '#22D3EE', '#60A5FA', '#818CF8', '#A78BFA', '#E879F9', '#FB7185', '#e4e4e7', '#52525b'];
     
@@ -137,11 +149,6 @@
       { name: 'Universal (Poppins)', family: 'Poppins' },
       { name: 'Robusta (Roboto Slab)', family: 'Roboto Slab' },
       { name: 'Código (Source Code Pro)', family: 'Source Code Pro' },
-      { name: 'Clásica (Lato)', family: 'Lato' },
-      { name: 'Legible (Open Sans)', family: 'Open Sans' },
-      { name: 'Serif (Merriweather)', family: 'Merriweather' },
-      { name: 'Amigable (Cabin)', family: 'Cabin' },
-      { name: 'Script (Pacifico)', family: 'Pacifico' },
     ];
 
     const clamp = (n, a, b) => Math.min(Math.max(n, a), b);
@@ -156,8 +163,11 @@
 
       // STATES
       const [slides, setSlides] = useState(3);
-      const [showHGuide, setShowHGuide] = useState(false); // ESTADO PARA LA GUIA HORIZONTAL
+      const [showHGuide, setShowHGuide] = useState(false);
       const [selected, setSelected] = useState(null);
+      // Estado para propiedades numéricas (X, Y, W, H)
+      const [selProps, setSelProps] = useState({ x: 0, y: 0, w: 0, h: 0 });
+
       const [view, setView] = useState({ x: 0, y: 0, zoom: 0.25 });
       const [isExporting, setIsExporting] = useState(false);
       const [isDraggingFile, setIsDraggingFile] = useState(false); 
@@ -224,17 +234,34 @@
         });
         fabricRef.current = c;
 
+        // Función auxiliar para actualizar props numéricos
+        const updateSelProps = (act) => {
+             if (!act) return;
+             setSelProps({
+                 x: Math.round(act.left),
+                 y: Math.round(act.top),
+                 w: Math.round(act.getScaledWidth()),
+                 h: Math.round(act.getScaledHeight())
+             });
+        };
+
         const updateSel = () => {
           const act = c.getActiveObject();
           setSelected(act ? { type: act.type, fill: act.fill } : null);
+          updateSelProps(act);
         };
         
         c.on('selection:created', updateSel);
         c.on('selection:updated', updateSel);
-        c.on('selection:cleared', () => setSelected(null));
-        c.on('object:modified', () => { resetGuidesColor(); pushHistory(); updateSel(); });
-        c.on('object:moving', (e) => handleSnapMoving(e, slides, showHGuide));
-        c.on('object:scaling', (e) => handleSnapScaling(e, slides));
+        c.on('selection:cleared', () => { setSelected(null); });
+        c.on('object:modified', () => { 
+            resetGuidesColor(); 
+            pushHistory(); 
+            updateSel(); 
+        });
+        // Actualizar números en tiempo real mientras se mueve/escala
+        c.on('object:moving', (e) => { handleSnapMoving(e, slides, showHGuide); updateSelProps(e.target); });
+        c.on('object:scaling', (e) => { handleSnapScaling(e, slides); updateSelProps(e.target); });
 
         c.on('mouse:dblclick', (e) => {
           if (e.target && e.target.type === 'text') {
@@ -247,7 +274,6 @@
           }
         });
 
-        // Dibujo inicial
         drawGuides(c, slides, showHGuide);
         c.renderAll();
         pushHistory();
@@ -255,9 +281,8 @@
         setTimeout(() => lucide.createIcons(), 100);
 
         return () => c.dispose();
-      }, [slides]); // Reiniciamos canvas si cambian slides, pero si cambia showHGuide usamos el otro efecto
+      }, [slides]);
 
-      // Efecto para actualizar guías si cambia el toggle sin destruir el canvas
       useEffect(() => {
         if (fabricRef.current) {
             drawGuides(fabricRef.current, slides, showHGuide);
@@ -278,10 +303,7 @@
                 });
             }
         };
-        const handleWindowMouseUp = () => {
-            setIsDraggingPanel(false);
-        };
-
+        const handleWindowMouseUp = () => setIsDraggingPanel(false);
         if (isDraggingPanel) {
             window.addEventListener('pointermove', handleWindowMouseMove);
             window.addEventListener('pointerup', handleWindowMouseUp);
@@ -299,7 +321,64 @@
         setIsDraggingPanel(true);
       };
 
-      // --- CAMBIAR COLOR FORMA ---
+      // --- MANIPULACIÓN NUMÉRICA ---
+      const handleNumChange = (key, val) => {
+        const c = fabricRef.current;
+        const act = c.getActiveObject();
+        if (!act) return;
+        
+        const numVal = parseInt(val, 10);
+        if (isNaN(numVal)) return;
+
+        if (key === 'x') act.set('left', numVal);
+        if (key === 'y') act.set('top', numVal);
+        if (key === 'w') {
+            const scale = numVal / act.width;
+            act.set({ scaleX: scale, scaleY: scale }); // Bloqueamos ratio para fotos
+        }
+        if (key === 'h') {
+            const scale = numVal / act.height;
+            act.set({ scaleX: scale, scaleY: scale });
+        }
+        
+        act.setCoords();
+        c.requestRenderAll();
+        setSelProps(prev => ({ ...prev, [key]: numVal }));
+        pushHistory();
+      };
+
+      // --- ALINEACIÓN INTELIGENTE ---
+      const alignObject = (direction) => {
+          const c = fabricRef.current;
+          const act = c.getActiveObject();
+          if(!act) return;
+
+          // 1. Detectar en qué slide está el objeto (basado en su centro)
+          const center = act.getCenterPoint();
+          const slideIndex = Math.floor(center.x / SLIDE_W);
+          const currentSlideX = slideIndex * SLIDE_W;
+
+          // 2. Calcular nuevas coordenadas
+          if (direction === 'h-center') {
+              const newLeft = currentSlideX + (SLIDE_W - act.getScaledWidth()) / 2;
+              act.set('left', newLeft);
+          }
+          if (direction === 'v-center') {
+              const newTop = (SLIDE_H - act.getScaledHeight()) / 2;
+              act.set('top', newTop);
+          }
+
+          act.setCoords();
+          c.requestRenderAll();
+          pushHistory();
+          // Actualizar inputs
+          setSelProps({
+             x: Math.round(act.left), y: Math.round(act.top),
+             w: Math.round(act.getScaledWidth()), h: Math.round(act.getScaledHeight())
+          });
+      };
+
+      // --- CAMBIAR COLOR ---
       const handleShapeColorChange = (color) => {
         const c = fabricRef.current;
         const act = c.getActiveObject();
@@ -311,12 +390,10 @@
         }
       };
 
-      // --- SNAP ENGINE ACTUALIZADO ---
-      
+      // --- SNAP ENGINE ---
       const resetGuidesColor = () => {
         let dirty = false;
         guidesCacheRef.current.forEach(o => {
-            // Restaurar estilo por defecto
             if (o.stroke !== '#3b82f6' || o.strokeWidth !== 2) {
                 o.set({ stroke: '#3b82f6', strokeWidth: 2, opacity: 0.5 }); 
                 dirty = true;
@@ -329,23 +406,13 @@
         let dirty = false;
         guidesCacheRef.current.forEach(o => {
             let match = false;
-            // Verificar si es la guía correcta basada en tipo y posición
             if (isHorizontal && o.isHGuide) {
-                // Para guía horizontal comprobamos Y
                 if (Math.abs(o.y1 - targetPos) < 1) match = true;
             } else if (!isHorizontal && !o.isHGuide) {
-                // Para guías verticales comprobamos X
                 if (Math.abs(o.x1 - targetPos) < 1) match = true;
             }
-
             if (match) {
                 if (o.stroke !== '#06b6d4') { o.set({ stroke: '#06b6d4', strokeWidth: 4, opacity: 1 }); dirty = true; }
-            } else {
-                // Mantener las otras en azul normal, pero no resetear si hay multiples activas en el mismo frame
-                // (Simplificación: reseteamos las no coincidentes a su estado base si no estaban ya)
-                if (o.stroke === '#06b6d4' && !match) { 
-                    o.set({ stroke: '#3b82f6', strokeWidth: 2, opacity: 0.5 }); dirty = true; 
-                }
             }
         });
         if (dirty) fabricRef.current.requestRenderAll();
@@ -357,7 +424,6 @@
         const h = obj.getScaledHeight();
         let snapped = false;
 
-        // 1. Snapping Vertical (Eje X)
         const vTargets = [];
         for (let i = 0; i <= n; i++) { vTargets.push(i * SLIDE_W); if (i < n) vTargets.push(i * SLIDE_W + SLIDE_W / 2); }
         
@@ -367,29 +433,12 @@
             else if (Math.abs((obj.left + w / 2) - t) < SNAP_DIST) { obj.left = t - w / 2; snapped = true; highlightGuide(t, false); }
         });
 
-        // 2. Snapping Horizontal (Eje Y) si está activo
         if (useHGuide) {
             const midY = SLIDE_H / 2;
-            // Centro absoluto
             if (Math.abs((obj.top + h/2) - midY) < SNAP_DIST) { 
-                obj.top = midY - h/2; 
-                snapped = true; 
-                highlightGuide(midY, true); 
-            }
-            // Borde superior
-            else if (Math.abs(obj.top - midY) < SNAP_DIST) {
-                obj.top = midY;
-                snapped = true;
-                highlightGuide(midY, true);
-            }
-            // Borde inferior
-            else if (Math.abs((obj.top + h) - midY) < SNAP_DIST) {
-                obj.top = midY - h;
-                snapped = true;
-                highlightGuide(midY, true);
+                obj.top = midY - h/2; snapped = true; highlightGuide(midY, true); 
             }
         }
-
         if (!snapped) resetGuidesColor();
       };
 
@@ -407,14 +456,11 @@
         if (!snapped) resetGuidesColor();
       };
 
-      // --- HELPERS ---
       const drawGuides = (c, n, showH) => {
-        // Eliminar guías viejas
         const oldGuides = c.getObjects().filter(o => o.isGuide);
         oldGuides.forEach(o => c.remove(o));
         guidesCacheRef.current = [];
 
-        // Guías Verticales (Límites y centros de slides)
         for(let i=0; i<=n; i++) { 
           if (i > 0 && i < n) {
              const g = new fabric.Line([i*SLIDE_W, 0, i*SLIDE_W, SLIDE_H], {
@@ -424,22 +470,18 @@
              c.add(g); guidesCacheRef.current.push(g);
           }
         }
-
-        // Guía Horizontal (Centro) - NUEVO
         if (showH) {
             const hGuide = new fabric.Line([0, SLIDE_H / 2, n * SLIDE_W, SLIDE_H / 2], {
                 stroke: '#3b82f6', strokeWidth: 2, strokeDashArray: [10, 10],
                 selectable: false, evented: false, opacity: 0.5, 
                 isGuide: true, isHGuide: true, originY: 'center'
             });
-            c.add(hGuide);
-            guidesCacheRef.current.push(hGuide);
+            c.add(hGuide); guidesCacheRef.current.push(hGuide);
         }
       };
-
       const bringGuidesTop = (c) => guidesCacheRef.current.forEach(o => c.bringToFront(o));
 
-      // --- GESTION DE TEXTO ---
+      // --- TEXTO ---
       const openNewTextModal = () => {
         setTextState({ content: '', color: '#000000', fontSize: 120, fontFamily: 'Inter', fontWeight: 'bold', fontStyle: 'normal', objRef: null });
         setModalOpen(true);
@@ -453,15 +495,37 @@
         bringGuidesTop(c); c.requestRenderAll(); pushHistory(); setModalOpen(false);
       };
 
-      // --- TECLADO ---
+      // --- TECLADO (AHORA CON MICRO-AJUSTES) ---
       useEffect(() => {
         const handleKey = (e) => {
           if (modalOpen) return;
+          const c = fabricRef.current;
+          const act = c?.getActiveObject();
           const mod = e.metaKey || e.ctrlKey;
+          const shift = e.shiftKey;
+          const dist = shift ? 10 : 1; // 10px con Shift, 1px normal
+
           if (e.key === 'Backspace' || e.key === 'Delete') deleteItem();
           if (mod && e.key === 'z') { e.preventDefault(); e.shiftKey ? applyHistory(1) : applyHistory(-1); }
           if (e.code === 'Space') { if (e.type === 'keydown') setSpaceDown(true); else setSpaceDown(false); }
           if (mod && e.key === '0') { e.preventDefault(); centerView(); }
+
+          // FLECHAS
+          if (act && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+              e.preventDefault();
+              if (e.key === 'ArrowLeft') act.left -= dist;
+              if (e.key === 'ArrowRight') act.left += dist;
+              if (e.key === 'ArrowUp') act.top -= dist;
+              if (e.key === 'ArrowDown') act.top += dist;
+              act.setCoords();
+              c.requestRenderAll();
+              
+              // Actualizar UI numérica sin llenar el historial cada milisegundo
+              setSelProps({
+                 x: Math.round(act.left), y: Math.round(act.top),
+                 w: Math.round(act.getScaledWidth()), h: Math.round(act.getScaledHeight())
+              });
+          }
         };
         window.addEventListener('keydown', handleKey); window.addEventListener('keyup', handleKey);
         return () => { window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', handleKey); };
@@ -500,15 +564,13 @@
         bringGuidesTop(c); c.requestRenderAll(); pushHistory();
       };
 
-      // --- LOGICA IMAGENES (INPUT + DRAG&DROP) ---
+      // --- LOGICA IMAGENES ---
       const processImageFile = (file, dropCoords = null) => {
         if (!file || !file.type.startsWith('image/')) return;
-
         const url = URL.createObjectURL(file);
         fabric.Image.fromURL(url, (img) => {
             const scale = (Math.min(SLIDE_W, SLIDE_H) * 0.5) / Math.max(img.width, img.height);
             let left, top;
-
             if (dropCoords) {
                 left = (dropCoords.x - view.x) / view.zoom - (img.width * scale) / 2;
                 top = (dropCoords.y - view.y) / view.zoom - (img.height * scale) / 2;
@@ -516,29 +578,18 @@
                 left = totalW / 2 - (img.width * scale) / 2;
                 top = SLIDE_H / 2 - (img.height * scale) / 2;
             }
-
             img.set({ left, top, scaleX: scale, scaleY: scale, uniformScaling: true });
-            fabricRef.current.add(img); 
-            fabricRef.current.setActiveObject(img); 
-            pushHistory(); 
-            fabricRef.current.requestRenderAll();
+            fabricRef.current.add(img); fabricRef.current.setActiveObject(img); 
+            pushHistory(); fabricRef.current.requestRenderAll();
         });
       };
-
-      const handleInputImage = (e) => {
-        const file = e.target.files[0];
-        processImageFile(file);
-        e.target.value = '';
-      };
-
+      const handleInputImage = (e) => { processImageFile(e.target.files[0]); e.target.value = ''; };
       const onDragOver = (e) => { e.preventDefault(); setIsDraggingFile(true); };
       const onDragLeave = (e) => { e.preventDefault(); setIsDraggingFile(false); };
       const onDrop = (e) => {
         e.preventDefault(); setIsDraggingFile(false);
         const files = e.dataTransfer.files;
-        if (files && files.length > 0) {
-            processImageFile(files[0], { x: e.clientX, y: e.clientY });
-        }
+        if (files && files.length > 0) { processImageFile(files[0], { x: e.clientX, y: e.clientY }); }
       };
 
       const handleExport = async () => {
@@ -559,7 +610,6 @@
       return (
         <div className="w-full h-full select-none text-zinc-200">
           
-          {/* HEADER */}
           <header className="fixed top-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
             <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-4 pointer-events-auto">
                 <div className="flex items-center gap-2 px-3 border-r border-white/10">
@@ -572,16 +622,9 @@
                         {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                 </div>
-                
-                {/* BOTON NUEVO: GUIA HORIZONTAL */}
-                <button 
-                  onClick={() => setShowHGuide(!showHGuide)} 
-                  className={`btn-icon ${showHGuide ? 'active' : ''}`}
-                  title="Guía Central Horizontal"
-                >
+                <button onClick={() => setShowHGuide(!showHGuide)} className={`btn-icon ${showHGuide ? 'active' : ''}`} title="Guía Central Horizontal">
                   <i data-lucide="rows" className="w-4 h-4"></i>
                 </button>
-
                 <div className="flex gap-1 border-l border-white/10 pl-2">
                     <button onClick={() => applyHistory(-1)} className="btn-icon"><i data-lucide="undo-2" className="w-4 h-4"></i></button>
                     <button onClick={() => applyHistory(1)} className="btn-icon"><i data-lucide="redo-2" className="w-4 h-4"></i></button>
@@ -592,44 +635,30 @@
             </div>
           </header>
 
-          {/* CANVAS MAIN CON DRAG & DROP */}
           <main 
             ref={containerRef}
             className={`viewport-container ${isPanning ? 'is-panning' : ''} ${isDraggingFile ? 'drag-active' : ''}`}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
+            onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
             onPointerDown={e => {
                 if (spaceDown || e.button===1 || e.button===2 || e.target===containerRef.current) {
                     e.preventDefault(); setIsPanning(true); panRef.current = {x: e.clientX-view.x, y: e.clientY-view.y};
                 }
             }}
-            onPointerMove={e => {
-                if (isPanning) setView(v => ({ ...v, x: e.clientX-panRef.current.x, y: e.clientY-panRef.current.y }));
-            }}
+            onPointerMove={e => { if (isPanning) setView(v => ({ ...v, x: e.clientX-panRef.current.x, y: e.clientY-panRef.current.y })); }}
             onPointerUp={() => setIsPanning(false)}
             onWheel={e => { if(e.ctrlKey) { e.preventDefault(); zoomAtCenter(e.deltaY > 0 ? 0.9 : 1.1); } }}
             onContextMenu={e => e.preventDefault()}
           >
-            {/* Feedback Visual Drag */}
             {isDraggingFile && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
-                    <div className="bg-blue-600 text-white px-6 py-3 rounded-full font-bold text-xl shadow-xl animate-bounce">
-                        Suelta la imagen aquí
-                    </div>
+                    <div className="bg-blue-600 text-white px-6 py-3 rounded-full font-bold text-xl shadow-xl animate-bounce">Suelta la imagen aquí</div>
                 </div>
             )}
-
-            <div style={{
-                transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
-                transformOrigin: '0 0', width: totalW, height: SLIDE_H, position: 'absolute',
-                boxShadow: '0 0 50px rgba(0,0,0,0.5)'
-            }}>
+            <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, transformOrigin: '0 0', width: totalW, height: SLIDE_H, position: 'absolute', boxShadow: '0 0 50px rgba(0,0,0,0.5)' }}>
                 <canvas ref={canvasElRef} />
             </div>
           </main>
 
-          {/* DOCK */}
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40">
             <div className="glass-panel p-2 rounded-2xl flex items-center gap-2">
                 <button onClick={openNewTextModal} className="btn-icon" title="Texto"><i data-lucide="type" className="w-6 h-6"></i></button>
@@ -645,49 +674,66 @@
             </div>
           </div>
 
-          {/* PANEL PROPIEDADES FLOTANTE */}
           {selected && !modalOpen && (
             <div 
                 className="fixed w-64 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-50 shadow-2xl animate-[fadeIn_0.2s]"
                 style={{ left: panelPos.x, top: panelPos.y }}
             >
-                <div 
-                    className="flex justify-between items-center pb-2 border-b border-white/10 cursor-move-grab"
-                    onPointerDown={startDragPanel}
-                >
+                <div className="flex justify-between items-center pb-2 border-b border-white/10 cursor-move-grab" onPointerDown={startDragPanel}>
                     <div className="flex items-center gap-2">
                         <i data-lucide="grip-horizontal" className="w-4 h-4 text-zinc-500"></i>
                         <span className="text-xs font-bold text-zinc-500 uppercase select-none">Propiedades</span>
                     </div>
-                    <button 
-                        onPointerDown={e => e.stopPropagation()} 
-                        onClick={deleteItem} 
-                        className="text-red-400 p-1 hover:bg-red-400/10 rounded" 
-                        title="Eliminar"
-                    >
-                        <i data-lucide="trash-2" className="w-4 h-4"></i>
-                    </button>
+                    <button onPointerDown={e => e.stopPropagation()} onClick={deleteItem} className="text-red-400 p-1 hover:bg-red-400/10 rounded" title="Eliminar"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
+                </div>
+
+                {/* --- NUEVO: INPUTS NUMERICOS --- */}
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="flex gap-2">
+                         <div className="num-input-group flex-1">
+                            <label className="num-input-label">X</label>
+                            <input type="number" value={selProps.x} onChange={(e) => handleNumChange('x', e.target.value)} className="num-input" />
+                         </div>
+                         <div className="num-input-group flex-1">
+                            <label className="num-input-label">Y</label>
+                            <input type="number" value={selProps.y} onChange={(e) => handleNumChange('y', e.target.value)} className="num-input" />
+                         </div>
+                    </div>
+                    <div className="flex gap-2">
+                         <div className="num-input-group flex-1">
+                            <label className="num-input-label">Ancho</label>
+                            <input type="number" value={selProps.w} onChange={(e) => handleNumChange('w', e.target.value)} className="num-input" />
+                         </div>
+                         <div className="num-input-group flex-1">
+                            <label className="num-input-label">Alto</label>
+                            <input type="number" value={selProps.h} onChange={(e) => handleNumChange('h', e.target.value)} className="num-input" />
+                         </div>
+                    </div>
+                </div>
+
+                {/* --- NUEVO: ALINEACIÓN --- */}
+                <div>
+                     <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Alineación (En Slide)</label>
+                     <div className="flex gap-2">
+                         <button onClick={() => alignObject('h-center')} className="btn-icon flex-1 bg-zinc-800 hover:bg-zinc-700 text-xs" title="Centrar Horizontalmente">
+                            <i data-lucide="align-center-horizontal" className="w-4 h-4"></i>
+                         </button>
+                         <button onClick={() => alignObject('v-center')} className="btn-icon flex-1 bg-zinc-800 hover:bg-zinc-700 text-xs" title="Centrar Verticalmente">
+                            <i data-lucide="align-center-vertical" className="w-4 h-4"></i>
+                         </button>
+                     </div>
                 </div>
                 
                 {selected.type === 'text' && (
-                    <div className="text-xs text-zinc-400 italic text-center py-2 bg-zinc-800/50 rounded">
-                        Doble clic para editar texto
-                    </div>
+                    <div className="text-xs text-zinc-400 italic text-center py-2 bg-zinc-800/50 rounded">Doble clic para editar texto</div>
                 )}
                 
-                {/* SELECTOR DE COLOR PARA FORMAS */}
                 {selected.type === 'rect' && (
                     <div>
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Color de Fondo</label>
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Color</label>
                         <div className="flex flex-wrap gap-2">
                             {COLORS.map(c => (
-                                <div 
-                                    key={c}
-                                    onClick={() => handleShapeColorChange(c)}
-                                    className={`color-swatch ${selected.fill === c ? 'active' : ''}`}
-                                    style={{ backgroundColor: c }}
-                                    title={c}
-                                />
+                                <div key={c} onClick={() => handleShapeColorChange(c)} className={`color-swatch ${selected.fill === c ? 'active' : ''}`} style={{ backgroundColor: c }} title={c} />
                             ))}
                         </div>
                     </div>
@@ -696,25 +742,21 @@
                 <div>
                     <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Capas</label>
                     <div className="flex justify-between items-center bg-zinc-900/50 rounded-lg p-1">
-                        <button onClick={() => layerAction('bottom')} className="btn-icon w-8 h-8" title="Enviar al fondo (≪)"><i data-lucide="chevrons-down" className="w-4 h-4"></i></button>
+                        <button onClick={() => layerAction('bottom')} className="btn-icon w-8 h-8"><i data-lucide="chevrons-down" className="w-4 h-4"></i></button>
                         <div className="w-px h-4 bg-white/10"></div>
-                        <button onClick={() => layerAction('down')} className="btn-icon w-8 h-8" title="Bajar un nivel (-)"><i data-lucide="minus" className="w-4 h-4"></i></button>
-                        <button onClick={() => layerAction('up')} className="btn-icon w-8 h-8" title="Subir un nivel (+)"><i data-lucide="plus" className="w-4 h-4"></i></button>
+                        <button onClick={() => layerAction('down')} className="btn-icon w-8 h-8"><i data-lucide="minus" className="w-4 h-4"></i></button>
+                        <button onClick={() => layerAction('up')} className="btn-icon w-8 h-8"><i data-lucide="plus" className="w-4 h-4"></i></button>
                         <div className="w-px h-4 bg-white/10"></div>
-                        <button onClick={() => layerAction('top')} className="btn-icon w-8 h-8" title="Traer al frente (≫)"><i data-lucide="chevrons-up" className="w-4 h-4"></i></button>
+                        <button onClick={() => layerAction('top')} className="btn-icon w-8 h-8"><i data-lucide="chevrons-up" className="w-4 h-4"></i></button>
                     </div>
                 </div>
             </div>
           )}
 
-          {/* MODAL EDITAR TEXTO */}
           {modalOpen && (
             <div className="modal-overlay">
                 <div className="glass-panel p-6 rounded-3xl w-[90%] max-w-lg flex flex-col gap-5 shadow-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-200">
-                    <h2 className="text-lg font-bold text-white text-center tracking-tight">
-                        {textState.objRef ? 'Editar Texto' : 'Nuevo Texto'}
-                    </h2>
-                    
+                    <h2 className="text-lg font-bold text-white text-center tracking-tight">{textState.objRef ? 'Editar Texto' : 'Nuevo Texto'}</h2>
                     <textarea 
                         autoFocus
                         value={textState.content}
@@ -723,74 +765,40 @@
                         placeholder="Escribe tu texto aquí..."
                         className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white text-2xl outline-none focus:border-blue-500 min-h-[120px] resize-none text-center"
                     />
-
                     <div className="grid grid-cols-2 gap-4">
                         <div className="flex flex-col gap-2">
                             <label className="text-[10px] font-bold text-zinc-500 uppercase">Tipografía</label>
                             <div className="flex flex-col gap-1 bg-black/20 p-1 rounded-xl max-h-40 overflow-y-auto">
                                 {FONTS.map(f => (
-                                    <button
-                                        key={f.name}
-                                        onClick={() => setTextState({...textState, fontFamily: f.family})}
-                                        className={`px-3 py-2 text-left rounded-lg text-sm transition ${textState.fontFamily === f.family ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:bg-white/5'}`}
-                                        style={{ fontFamily: f.family }}
-                                    >
-                                        {f.name}
-                                    </button>
+                                    <button key={f.name} onClick={() => setTextState({...textState, fontFamily: f.family})} className={`px-3 py-2 text-left rounded-lg text-sm transition ${textState.fontFamily === f.family ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:bg-white/5'}`} style={{ fontFamily: f.family }}>{f.name}</button>
                                 ))}
                             </div>
                         </div>
-
                         <div className="flex flex-col gap-4">
                             <div>
                                 <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Estilo</label>
                                 <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => setTextState({...textState, fontWeight: textState.fontWeight === 'bold' ? 'normal' : 'bold'})}
-                                        className={`flex-1 p-2 rounded-lg border transition font-bold ${textState.fontWeight === 'bold' ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'}`}
-                                    >B</button>
-                                    <button 
-                                        onClick={() => setTextState({...textState, fontStyle: textState.fontStyle === 'italic' ? 'normal' : 'italic'})}
-                                        className={`flex-1 p-2 rounded-lg border transition italic ${textState.fontStyle === 'italic' ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'}`}
-                                    >I</button>
+                                    <button onClick={() => setTextState({...textState, fontWeight: textState.fontWeight === 'bold' ? 'normal' : 'bold'})} className={`flex-1 p-2 rounded-lg border transition font-bold ${textState.fontWeight === 'bold' ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'}`}>B</button>
+                                    <button onClick={() => setTextState({...textState, fontStyle: textState.fontStyle === 'italic' ? 'normal' : 'italic'})} className={`flex-1 p-2 rounded-lg border transition italic ${textState.fontStyle === 'italic' ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'}`}>I</button>
                                 </div>
                             </div>
-                            
                             <div>
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block flex justify-between">
-                                    <span>Tamaño</span> <span>{textState.fontSize}px</span>
-                                </label>
-                                <input 
-                                    type="range" min="40" max="400" step="10"
-                                    value={textState.fontSize}
-                                    onChange={e => setTextState({...textState, fontSize: parseInt(e.target.value)})}
-                                    className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-white"
-                                />
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block flex justify-between"><span>Tamaño</span> <span>{textState.fontSize}px</span></label>
+                                <input type="range" min="40" max="400" step="10" value={textState.fontSize} onChange={e => setTextState({...textState, fontSize: parseInt(e.target.value)})} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-white" />
                             </div>
                         </div>
                     </div>
-
                     <div>
                         <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Color</label>
                         <div className="flex flex-wrap gap-2 justify-center bg-black/20 p-2 rounded-xl">
                             {COLORS.map(c => (
-                                <div 
-                                    key={c}
-                                    onClick={() => setTextState({...textState, color: c})}
-                                    className={`color-swatch ${textState.color === c ? 'active' : ''}`}
-                                    style={{ backgroundColor: c }}
-                                />
+                                <div key={c} onClick={() => setTextState({...textState, color: c})} className={`color-swatch ${textState.color === c ? 'active' : ''}`} style={{ backgroundColor: c }} />
                             ))}
                         </div>
                     </div>
-
                     <div className="flex gap-3 pt-2 border-t border-white/10">
-                        <button onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-zinc-400 hover:bg-white/5 transition">
-                            Cancelar
-                        </button>
-                        <button onClick={handleSaveText} className="flex-1 py-3 rounded-xl font-bold bg-white text-black hover:bg-zinc-200 transition">
-                            {textState.objRef ? 'Actualizar Texto' : 'Añadir Texto'}
-                        </button>
+                        <button onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-zinc-400 hover:bg-white/5 transition">Cancelar</button>
+                        <button onClick={handleSaveText} className="flex-1 py-3 rounded-xl font-bold bg-white text-black hover:bg-zinc-200 transition">{textState.objRef ? 'Actualizar Texto' : 'Añadir Texto'}</button>
                     </div>
                 </div>
             </div>
