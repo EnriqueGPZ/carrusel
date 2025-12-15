@@ -1,305 +1,1026 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CaruselForge | Editor & AI</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Panorama Studio Pro</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css"> 
+  <!-- React + Babel (single-file) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fabric + ZIP export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+  <!-- Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* --- CORE STABILITY FIXES --- */
+    html, body {
+      width: 100vw; height: 100vh;
+      margin: 0; padding: 0;
+      overflow: hidden !important;
+      position: fixed;
+      background-color: #09090b;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    #root { width: 100%; height: 100%; position: absolute; inset: 0; }
+
+    /* Canvas viewport */
+    .viewport-container {
+      width: 100%; height: 100%;
+      position: absolute; inset: 0;
+      background-image: radial-gradient(#27272a 1px, transparent 1px);
+      background-size: 24px 24px;
+      cursor: grab;
+      z-index: 0;
+      touch-action: none; /* importante para pan/zoom táctil */
+    }
+    .viewport-container.is-panning { cursor: grabbing; }
+
+    /* UI glass */
+    .glass-panel {
+      background: rgba(24, 24, 27, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Color swatches */
+    .color-swatch {
+      width: 26px; height: 26px;
+      border-radius: 999px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+    .color-swatch:hover { transform: scale(1.1); }
+    .color-swatch.active { border-color: rgba(255,255,255,0.95); box-shadow: 0 0 0 2px rgba(255,255,255,0.18); }
+
+    /* FIX: Tailwind @apply no funciona dentro de <style> con CDN */
+    .btn-icon{
+      padding: 10px;
+      border-radius: 14px;
+      color: rgb(161 161 170); /* zinc-400 */
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
+      user-select: none;
+    }
+    .btn-icon:hover{
+      color: white;
+      background: rgba(255,255,255,0.10);
+    }
+    .btn-icon:active{ transform: translateY(1px); }
+    .btn-icon:disabled{
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Small helper badge */
+    .kbd {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.8);
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+  </style>
 </head>
 
 <body>
-<header>
-  <div class="brand">
-    <div class="logo">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect>
-        <path d="M12 7v10"></path>
-      </svg>
-    </div>
-    <div class="titleWrap">
-      <p class="title">CaruselForge</p>
+  <div id="root"></div>
+  <div id="boot-fallback" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#09090b;color:#e4e4e7;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;z-index:9999">
+    <div style="max-width:680px;padding:24px;border:1px solid rgba(255,255,255,0.12);border-radius:18px;background:rgba(24,24,27,0.85);backdrop-filter:blur(10px)">
+      <div style="font-weight:700;font-size:16px;margin-bottom:8px">Cargando el editor…</div>
+      <div style="font-size:13px;line-height:1.45;color:rgba(228,228,231,0.8)">Si esto se queda en pantalla, abre el archivo desde un servidor local (por ejemplo con <b>python -m http.server</b>) o prueba en Chrome. Algunos navegadores bloquean librerías externas al abrir un HTML con <b>file://</b>.</div>
     </div>
   </div>
 
-  <div id="headerMsg"></div>
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
 
-  <div class="topActions">
-    <button class="btn" id="helpBtn" title="Instrucciones">Ayuda</button>
-    <button class="btn" id="aiSettings" title="Configurar API Key">⚙️ AI</button>
-    <button class="btn bad" id="clearAll" title="Vaciar todo">Vaciar</button>
-  </div>
-</header>
+    // --- CONFIG ---
+    const SLIDE_W = 1080;
+    const SLIDE_H = 1350;
+    const COLORS = ['#000000', '#FFFFFF', '#F87171', '#FB923C', '#FBBF24', '#34D399', '#22D3EE', '#60A5FA', '#818CF8', '#A78BFA', '#E879F9', '#FB7185'];
 
-<main>
-  <section class="card">
-    <div class="cardTop">
-      <div class="cardTitle">
-        <h2>Imágenes</h2>
-      </div>
-      <div style="display:flex; gap:6px">
-         <button class="btn" id="moveUp" title="Subir" style="padding:0 8px">↑</button>
-         <button class="btn" id="moveDown" title="Bajar" style="padding:0 8px">↓</button>
-      </div>
-    </div>
+    const clamp = (n, a, b) => Math.min(Math.max(n, a), b);
 
-    <div class="cardBody">
-      <label class="dropzone" id="dropzone" style="cursor:pointer">
-        <input id="files" type="file" accept="image/*" multiple>
-        <div class="dropLeft">
-          <div class="spark">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-               <polyline points="17 8 12 3 7 8"></polyline>
-               <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-          </div>
-          <div class="dropText">
-            <div class="a">Añadir fotos</div>
-          </div>
-        </div>
-      </label>
+    const zoomTo = (nextZoom, anchor = 'center') => {
+      const el = containerRef.current;
+      if (!el) { setView(v => ({ ...v, zoom: clamp(nextZoom, 0.05, 6) })); return; }
 
-      <div id="empty" class="empty" style="display:none">
-        Arrastra tus imágenes aquí
-      </div>
+      const rect = el.getBoundingClientRect();
+      const ax = anchor === 'cursor' && lastPointerRef.current
+        ? lastPointerRef.current.x
+        : rect.left + rect.width / 2;
+      const ay = anchor === 'cursor' && lastPointerRef.current
+        ? lastPointerRef.current.y
+        : rect.top + rect.height / 2;
 
-      <div class="kpi">
-        <span>Fotos:</span> <strong id="count">0</strong>
-        <span style="opacity:.3; margin:0 6px">|</span>
-        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px" id="selName">—</span>
-      </div>
+      setView(v => {
+        const z0 = v.zoom;
+        const z1 = clamp(nextZoom, 0.05, 6);
 
-      <div class="list" id="list"></div>
+        // Convert anchor (screen) to world coordinates
+        const wx = (ax - v.x) / z0;
+        const wy = (ay - v.y) / z0;
 
-      <div style="margin-top:10px; display:flex; gap:6px; flex: 0 0 auto;">
-        <button class="btn" id="prev">Ant</button>
-        <button class="btn" id="next">Sig</button>
-      </div>
-    </div>
-  </section>
+        // Keep the same world point under the anchor after zoom
+        const nx = ax - wx * z1;
+        const ny = ay - wy * z1;
 
-  <section class="card centerCol" style="border:none; background:transparent; box-shadow:none; overflow:hidden">
-    <div class="editorToolbar">
-        <div style="display:flex; align-items:center; gap:12px">
-            <div class="kpi" style="margin:0; background:transparent; padding:0">
-                <span class="label">Ratio Actual</span>
-                <strong id="ratioLabel" style="font-size:13px">1:1</strong>
-                <small id="ratioMode" style="color:var(--text-dim); margin-left:4px">(Libre)</small>
-            </div>
-        </div>
-        <button class="btn" id="changeRatio" style="height:26px; font-size:11px">Configurar Todo</button>
-    </div>
+        return { ...v, zoom: z1, x: nx, y: ny };
+      });
+    };
 
-    <div class="editorWrap">
-      <div class="editorTop">
-        <div class="toolGroup">
-          <span class="label">Ratios</span>
-          <button class="btn" data-r="1" style="padding:0 8px">1:1</button>
-          <button class="btn" data-r="4/5" style="padding:0 8px">4:5</button>
-          <button class="btn" data-r="9/16" style="padding:0 8px">9:16</button>
-          <button class="btn" data-r="3/2" style="padding:0 8px">3:2</button>
-          <button class="btn" data-r="4/3" style="padding:0 8px">4:3</button>
-        </div>
+    const zoomBy = (factor, anchor = 'center') => {
+      setView(v => v); // no-op to keep React happy in some browsers
+      const current = viewRef.current;
+      zoomTo(current.zoom * factor, anchor);
+    };
 
-        <div class="toolGroup" style="margin-left:auto; margin-right:8px">
-            <button class="btn" id="rotL" title="Rotar izq" style="padding:0 8px">⟲</button>
-            <button class="btn" id="rotR" title="Rotar der" style="padding:0 8px">⟳</button>
-            <button class="btn" id="zoomOut" title="Zoom -" style="padding:0 8px">−</button>
-            <button class="btn" id="zoomIn" title="Zoom +" style="padding:0 8px">+</button>
-        </div>
-        
-        <div class="toolGroup">
-            <button class="btn" id="reset">Reset</button>
-            <button class="btn primary" id="saveCrop">Guardar</button>
-        </div>
-      </div>
+    const App = () => {
+      const canvasElRef = useRef(null);
+      const containerRef = useRef(null);
+      const fileInputRef = useRef(null);
 
-      <div class="editorCanvas" id="editorCanvas">
-        <img id="image" alt="">
-      </div>
-    </div>
-  </section>
+      const fabricRef = useRef(null); // siempre apunta al canvas actual
+      const urlsToRevokeRef = useRef([]);
 
-  <section class="card">
-    <div class="cardTop">
-      <div class="cardTitle">
-        <h2>Vista Previa</h2>
-      </div>
-    </div>
+      // Historial para Undo/Redo (ligero)
+      const historyRef = useRef({ stack: [], index: -1, isApplying: false });
 
-    <div class="cardBody previewBody">
-      <div class="feed">
-        <div class="feedHead">
-          <div class="avatar"></div>
-          <div>
-            <div style="height:8px; width:80px; background:#333; border-radius:4px; margin-bottom:4px"></div>
-            <div style="height:6px; width:50px; background:#222; border-radius:4px"></div>
-          </div>
-        </div>
+      const [slides, setSlides] = useState(3);
+      const [selected, setSelected] = useState(null);
+      const [isExporting, setIsExporting] = useState(false);
 
-        <div class="media" id="media">
-          <img id="preview" alt="">
-          <div class="nav">
-            <button id="pPrev">‹</button>
-            <button id="pNext">›</button>
-          </div>
-          <div class="dots" id="dots"></div>
-        </div>
+      const \[view, setView\] = useState\(\{ x: 0, y: 0, zoom: 0\.25 \}\);
+      const viewRef = useRef({ x: 0, y: 0, zoom: 0.25 });
+      useEffect(() => { viewRef.current = view; }, [view]);
+      const lastPointerRef = useRef(null);
+      const [isPanning, setIsPanning] = useState(false);
+      const panRef = useRef({ startX: 0, startY: 0, pointerId: null });
+      const snapOverlayRef = useRef([]);
+      const snapStateRef = useRef({ xs: [], ys: [] });
+      const [spaceDown, setSpaceDown] = useState(false);
 
-        <div class="feedFoot">
-             <div style="display:flex; gap:10px">
-                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-             </div>
-        </div>
-      </div>
+      const totalW = useMemo(() => slides * SLIDE_W, [slides]);
+      const isText = !!selected && (selected.type === 'i-text' || selected.type === 'text');
 
-      <div class="captionArea">
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px; align-items:flex-end">
-            <label class="label">Texto para el post</label>
-            <div style="display:flex; gap:8px; align-items:center">
-                <button id="aiFixBtn" class="btn primary" style="height:20px; font-size:10px; padding:0 6px; display:none;">✨ Mejorar IA</button>
-                <span id="charCount" style="font-size:10px; color:var(--text-dim)">0 / 2200</span>
-            </div>
-          </div>
-          <textarea id="captionText" class="captionInput" placeholder="Escribe aquí tu copy..."></textarea>
-      </div>
+      // --- Helpers: serialización segura ---
+      const serialize = (c) => {
+        // Guardamos todo menos guías (que se recrean)
+        return c.toJSON(['isGuide', 'excludeFromExport']);
+      };
 
-      <div class="exportSection">
-          <h3 style="font-size:11px; text-transform:uppercase; color:var(--text-dim); margin:0 0 8px 0;">Exportar</h3>
-          
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:8px">
-              <div>
-                  <label class="label">Tamaño</label>
-                  <select class="select" id="size" style="width:100%">
-                    <option value="1080" selected>1080px</option>
-                    <option value="2160">2160px (Hi-Res)</option>
-                  </select>
+      const pushHistory = () => {
+        const c = fabricRef.current;
+        if (!c) return;
+        const h = historyRef.current;
+        if (h.isApplying) return;
+
+        const json = serialize(c);
+        const snap = JSON.stringify(json);
+
+        // Evitar duplicados seguidos
+        if (h.index >= 0 && h.stack[h.index] === snap) return;
+
+        // Si hemos hecho undo y luego tocamos algo, truncamos "futuro"
+        h.stack = h.stack.slice(0, h.index + 1);
+        h.stack.push(snap);
+        h.index = h.stack.length - 1;
+
+        // Limitar memoria
+        if (h.stack.length > 60) {
+          h.stack.shift();
+          h.index -= 1;
+        }
+      };
+
+      const applyHistory = (direction) => {
+        const c = fabricRef.current;
+        if (!c) return;
+        const h = historyRef.current;
+
+        const nextIndex = clamp(h.index + direction, 0, h.stack.length - 1);
+        if (nextIndex === h.index) return;
+
+        h.isApplying = true;
+        h.index = nextIndex;
+
+        const json = JSON.parse(h.stack[h.index]);
+
+        // Ojo: antes de cargar, eliminamos guías; luego las recreamos
+        c.clear();
+        c.setWidth(totalW);
+        c.setHeight(SLIDE_H);
+
+        c.loadFromJSON(json, () => {
+          drawGuides(c, slides);
+          bringGuidesTop(c);
+          c.requestRenderAll();
+          h.isApplying = false;
+        });
+      };
+
+      // --- Inicialización / Rebuild conservando contenido ---
+      useEffect(() => {
+        // Bloqueo de scroll nativo (por si acaso)
+        const preventScroll = () => window.scrollTo(0, 0);
+        window.addEventListener('scroll', preventScroll);
+
+        const prev = fabricRef.current;
+        const prevJSON = prev ? serialize(prev) : null;
+
+        if (prev) {
+          try { prev.dispose(); } catch (_) {}
+          fabricRef.current = null;
+        }
+
+        const c = new fabric.Canvas(canvasElRef.current, {
+          height: SLIDE_H,
+          width: totalW,
+          backgroundColor: '#ffffff',
+          preserveObjectStacking: true,
+          selection: true,
+          stopContextMenu: true,
+          fireRightClick: true,
+          renderOnAddRemove: true
+        });
+
+        fabricRef.current = c;
+
+        // Selección
+        const updateSel = () => {
+          const active = c.getActiveObject();
+          // Copia superficial para refrescar React, sin arrastrar referencias raras
+          setSelected(active ? {
+            type: active.type,
+            fill: active.fill,
+            textAlign: active.textAlign,
+            fontWeight: active.fontWeight,
+            fontStyle: active.fontStyle
+          } : null);
+        };
+
+        c.on('selection:created', updateSel);
+        c.on('selection:updated', updateSel);
+        c.on('selection:cleared', () => { setSelected(null); clearSnapOverlay(c); });
+
+        // Texto en edición: no rompemos la cámara ni selección accidental
+        c.on('text:editing:entered', () => { c.selection = false; });
+        c.on('text:editing:exited', () => { c.selection = true; updateSel(); pushHistory(); });
+
+        // Snap + historial
+        c.on('object:moving', (e) => handleSnap(e, slides));
+        c.on('object:modified', () => { clearSnapOverlay(c); bringGuidesTop(c); pushHistory(); updateSel(); });
+        c.on('object:added', (e) => {
+          if (e?.target?.isGuide) return;
+          bringGuidesTop(c);
+          pushHistory();
+          updateSel();
+        });
+        c.on('object:removed', (e) => {
+          if (e?.target?.isGuide) return;
+          pushHistory();
+          updateSel();
+        });
+
+        // Guías
+        drawGuides(c, slides);
+        bringGuidesTop(c);
+
+        // Si venimos de un canvas anterior, restaurar contenido
+        if (prevJSON) {
+          c.loadFromJSON(prevJSON, () => {
+            drawGuides(c, slides);
+            bringGuidesTop(c);
+            c.requestRenderAll();
+            pushHistory(); // snapshot inicial del estado restaurado
+          });
+        } else {
+          pushHistory(); // snapshot inicial vacío
+        }
+
+        // Vista inicial fit
+        setTimeout(() => centerView(totalW), 50);
+
+        // Iconos
+        setTimeout(() => { try { window.lucide && lucide.createIcons(); } catch(_) {} }, 0);
+
+        return () => {
+          window.removeEventListener('scroll', preventScroll);
+          try { c.dispose(); } catch (_) {}
+        };
+      }, [slides]); // rebuild al cambiar nº de slides
+
+      // Reactivar iconos cuando cambian paneles
+      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, slides, isExporting]);
+
+      // Revoke object URLs
+      useEffect(() => {
+        return () => {
+          urlsToRevokeRef.current.forEach((u) => { try { URL.revokeObjectURL(u); } catch(_) {} });
+          urlsToRevokeRef.current = [];
+        };
+      }, []);
+
+      // --- Atajos teclado ---
+      useEffect(() => {
+        const onKeyDown = (e) => {
+          const c = fabricRef.current;
+          if (!c) return;
+
+          // Detectar espacio para pan (tipo Photoshop)
+          if (e.code === 'Space') {
+            setSpaceDown(true);
+            // Evitar scroll / page jump
+            e.preventDefault();
+          }
+
+          // Undo / Redo
+          const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+          const mod = isMac ? e.metaKey : e.ctrlKey;
+
+          if (mod && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            if (e.shiftKey) applyHistory(+1); // Shift+Z => redo (Mac)
+            else applyHistory(-1);
+            return;
+          }
+          if (mod && e.key.toLowerCase() === 'y') {
+            e.preventDefault();
+            applyHistory(+1);
+            return;
+          }
+
+          // Borrar selección
+          if (e.key === 'Backspace' || e.key === 'Delete') {
+            // si estás editando texto, no borramos el objeto
+            const active = c.getActiveObject();
+            if (active && active.isEditing) return;
+            e.preventDefault();
+            deleteItem();
+          }
+
+          // Centrar vista
+          if (mod && e.key.toLowerCase() === '0') {
+            e.preventDefault();
+            centerView();
+          }
+
+          // Zoom +/- (mod + / -)
+          if (mod && (e.key === '+' || e.key === '=')) {
+            e.preventDefault();
+            zoomBy(1.1);
+          }
+          if (mod && (e.key === '-' || e.key === '_')) {
+            e.preventDefault();
+            zoomBy(1/1.1);
+          }
+        };
+
+        const onKeyUp = (e) => {
+          if (e.code === 'Space') setSpaceDown(false);
+        };
+
+        window.addEventListener('keydown', onKeyDown, { passive: false });
+        window.addEventListener('keyup', onKeyUp);
+        return () => {
+          window.removeEventListener('keydown', onKeyDown);
+          window.removeEventListener('keyup', onKeyUp);
+        };
+      }, [slides, view.zoom]);
+
+      // --- Cámara / viewport ---
+      const centerView = (w = totalW) => {
+        if (!containerRef.current) return;
+        const cw = containerRef.current.clientWidth;
+        const ch = containerRef.current.clientHeight;
+        const padding = 100;
+        const scale = Math.min((cw - padding) / w, (ch - padding) / SLIDE_H, 0.9);
+
+        setView({
+          x: (cw - (w * scale)) / 2,
+          y: (ch - (SLIDE_H * scale)) / 2,
+          zoom: scale
+        });
+      };
+
+      const zoomAt = (clientX, clientY, nextZoom) => {
+        // zoom alrededor del puntero (más natural)
+        const rect = containerRef.current.getBoundingClientRect();
+        const px = clientX - rect.left;
+        const py = clientY - rect.top;
+
+        setView(v => {
+          const prevZoom = v.zoom;
+          const scale = nextZoom / prevZoom;
+
+          const nextX = px - (px - v.x) * scale;
+          const nextY = py - (py - v.y) * scale;
+
+          return { x: nextX, y: nextY, zoom: nextZoom };
+        });
+      };
+
+      const handleWheel = (e) => {
+        // Trackpad: ctrl/meta + wheel => zoom
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const delta = -e.deltaY * 0.001;
+          const nextZoom = clamp(view.zoom + delta, 0.05, 6);
+          zoomAt(e.clientX, e.clientY, nextZoom);
+        }
+      };
+
+      // Pan con: espacio + arrastrar, botón medio, botón derecho o arrastrar el fondo fuera del canvas
+      const shouldStartPan = (e) => {
+        const isRight = e.button === 2;
+        const isMiddle = e.button === 1;
+        const isBackground = (e.target === containerRef.current);
+        return spaceDown || isRight || isMiddle || isBackground;
+      };
+
+      const onPointerDown = (e) => {
+        if (!shouldStartPan(e)) return;
+        e.preventDefault();
+
+        setIsPanning(true);
+        panRef.current.pointerId = e.pointerId;
+        panRef.current.startX = e.clientX - view.x;
+        panRef.current.startY = e.clientY - view.y;
+
+        try { containerRef.current.setPointerCapture(e.pointerId); } catch(_) {}
+      };
+
+      const onPointerMove = (e) => {
+        lastPointerRef.current = { x: e.clientX, y: e.clientY };
+        if (!isPanning) return;
+        e.preventDefault();
+        setView(v => ({ ...v, x: e.clientX - panRef.current.startX, y: e.clientY - panRef.current.startY }));
+      };
+
+      const onPointerUp = (e) => {
+        if (!isPanning) return;
+        e.preventDefault();
+        setIsPanning(false);
+        try { containerRef.current.releasePointerCapture(panRef.current.pointerId); } catch(_) {}
+        panRef.current.pointerId = null;
+      };
+
+      const onContextMenu = (e) => e.preventDefault();
+
+      // --- Guías + snap ---
+      const drawGuides = (c, num) => {
+        // borra guías previas
+        c.getObjects().forEach(o => { if (o.isGuide) c.remove(o); });
+
+        for (let i = 1; i < num; i++) {
+          const x = i * SLIDE_W;
+          const line = new fabric.Line([x, 0, x, SLIDE_H], {
+            stroke: '#3b82f6',
+            strokeWidth: 2,
+            selectable: false,
+            evented: false,
+            strokeDashArray: [12, 12],
+            opacity: 0.5,
+            isGuide: true,
+            excludeFromExport: true
+          });
+          c.add(line);
+        }
+      };
+
+      const bringGuidesTop = (c = fabricRef.current) => {
+        if (!c) return;
+        c.getObjects().forEach(o => { if (o.isGuide) c.bringToFront(o); });
+      };
+      const clearSnapOverlay = (c) => {
+        if (!c) return;
+        const arr = snapOverlayRef.current;
+        if (arr.length) {
+          arr.forEach(o => { try { c.remove(o); } catch (_) {} });
+          snapOverlayRef.current = [];
+        }
+      };
+
+      const showSnapOverlay = (c, xs = [], ys = []) => {
+        if (!c) return;
+        clearSnapOverlay(c);
+
+        const lines = [];
+        xs.forEach(x => {
+          const l = new fabric.Line([x, 0, x, SLIDE_H], {
+            stroke: '#3b82f6',
+            strokeWidth: 4,
+            selectable: false,
+            evented: false,
+            opacity: 0.95,
+            isGuide: true,
+            isSnapOverlay: true,
+            excludeFromExport: true
+          });
+          lines.push(l);
+          c.add(l);
+        });
+        ys.forEach(y => {
+          const l = new fabric.Line([0, y, totalW, y], {
+            stroke: '#3b82f6',
+            strokeWidth: 4,
+            selectable: false,
+            evented: false,
+            opacity: 0.95,
+            isGuide: true,
+            isSnapOverlay: true,
+            excludeFromExport: true
+          });
+          lines.push(l);
+          c.add(l);
+        });
+
+        snapOverlayRef.current = lines;
+        bringGuidesTop(c);
+        c.requestRenderAll();
+      };
+
+      
+      const handleSnap = (opt, num) => {
+        const c = fabricRef.current;
+        const obj = opt.target;
+        if (!c || !obj || obj.isGuide) return;
+
+        const w = (obj.width || 0) * (obj.scaleX || 1);
+        const h = (obj.height || 0) * (obj.scaleY || 1);
+
+        // Targets: bordes y centros de cada slide + límites superiores/inferiores
+        const targetsX = [];
+        for (let i = 0; i <= num; i++) {
+          const left = i * SLIDE_W;
+          targetsX.push(left);
+          if (i < num) {
+            targetsX.push(left + SLIDE_W / 2);
+            targetsX.push(left + SLIDE_W);
+          }
+        }
+
+        const targetsY = [0, SLIDE_H / 2, SLIDE_H];
+
+        const snapDist = 22;
+        const snappedXs = [];
+        const snappedYs = [];
+
+        // --- X ---
+        for (const t of targetsX) {
+          if (Math.abs(obj.left - t) < snapDist) { obj.set({ left: t }); snappedXs.push(t); break; }
+          if (Math.abs((obj.left + w / 2) - t) < snapDist) { obj.set({ left: t - w / 2 }); snappedXs.push(t); break; }
+          if (Math.abs((obj.left + w) - t) < snapDist) { obj.set({ left: t - w }); snappedXs.push(t); break; }
+        }
+
+        // --- Y ---
+        for (const t of targetsY) {
+          if (Math.abs(obj.top - t) < snapDist) { obj.set({ top: t }); snappedYs.push(t); break; }
+          if (Math.abs((obj.top + h / 2) - t) < snapDist) { obj.set({ top: t - h / 2 }); snappedYs.push(t); break; }
+          if (Math.abs((obj.top + h) - t) < snapDist) { obj.set({ top: t - h }); snappedYs.push(t); break; }
+        }
+
+        // Overlay (más notorio): líneas sólidas cuando hay snap
+        const xs = [...new Set(snappedXs)];
+        const ys = [...new Set(snappedYs)];
+
+        const prev = snapStateRef.current;
+        const same =
+          xs.length === prev.xs.length && ys.length === prev.ys.length &&
+          xs.every((v, i) => v === prev.xs[i]) && ys.every((v, i) => v === prev.ys[i]);
+
+        if (xs.length || ys.length) {
+          // Normalizar para comparar
+          xs.sort((a,b) => a-b); ys.sort((a,b) => a-b);
+          snapStateRef.current = { xs, ys };
+          if (!same) showSnapOverlay(c, xs, ys);
+        } else {
+          snapStateRef.current = { xs: [], ys: [] };
+          clearSnapOverlay(c);
+        }
+      };
+
+
+      // --- Acciones ---
+      const addItem = (type, url = null) => {
+        const c = fabricRef.current;
+        if (!c) return;
+
+        const cx = totalW / 2;
+        const cy = SLIDE_H / 2;
+
+        if (type === 'text') {
+          const t = new fabric.IText('Edítame', {
+            left: cx - 200,
+            top: cy - 50,
+            fontFamily: 'Inter',
+            fill: '#18181b',
+            fontSize: 120,
+            fontWeight: 700,
+            selectable: true
+          });
+          c.add(t);
+          c.setActiveObject(t);
+          c.requestRenderAll();
+        } else if (type === 'rect') {
+          const r = new fabric.Rect({
+            left: cx - 250,
+            top: cy - 250,
+            width: 500,
+            height: 500,
+            fill: '#e4e4e7'
+          });
+          c.add(r);
+          c.setActiveObject(r);
+          c.requestRenderAll();
+        } else if (type === 'image' && url) {
+          fabric.Image.fromURL(url, (img) => {
+            const scale = (Math.min(SLIDE_W, SLIDE_H) / Math.max(img.width, img.height)) * 0.75;
+            img.set({
+              left: cx - (img.width * scale) / 2,
+              top: cy - (img.height * scale) / 2,
+              scaleX: scale,
+              scaleY: scale,
+              selectable: true
+            });
+            c.add(img);
+            c.setActiveObject(img);
+            bringGuidesTop(c);
+            c.requestRenderAll();
+          }, { crossOrigin: 'anonymous' });
+        }
+        bringGuidesTop(c);
+      };
+
+      const updateSelected = (prop, value) => {
+        const c = fabricRef.current;
+        if (!c) return;
+        const active = c.getActiveObject();
+        if (!active) return;
+
+        // Algunas figuras (imagen) no tienen "fill"
+        if (prop === 'fill' && (active.type === 'image' || active.type === 'group')) return;
+
+        active.set(prop, value);
+        c.requestRenderAll();
+
+        setSelected(s => ({ ...(s || {}), [prop]: value }));
+      };
+
+      const toggleStyle = (style) => {
+        const c = fabricRef.current;
+        if (!c) return;
+        const active = c.getActiveObject();
+        if (!active || !(active.type === 'i-text' || active.type === 'text')) return;
+
+        if (style === 'bold') {
+          const newVal = (active.fontWeight === 'bold' || active.fontWeight === 700) ? 'normal' : 'bold';
+          active.set('fontWeight', newVal);
+        } else if (style === 'italic') {
+          const newVal = active.fontStyle === 'italic' ? 'normal' : 'italic';
+          active.set('fontStyle', newVal);
+        }
+        c.requestRenderAll();
+        setSelected(s => ({ ...(s || {}), fontWeight: active.fontWeight, fontStyle: active.fontStyle }));
+        pushHistory();
+      };
+
+      const deleteItem = () => {
+        const c = fabricRef.current;
+        if (!c) return;
+        const active = c.getActiveObject();
+        if (active && !active.isGuide) {
+          c.remove(active);
+          c.discardActiveObject();
+          setSelected(null);
+          c.requestRenderAll();
+          pushHistory();
+        }
+      };
+
+      const layerAction = (action) => {
+        const c = fabricRef.current;
+        if (!c) return;
+        const active = c.getActiveObject();
+        if (!active) return;
+
+        if (action === 'top') c.bringToFront(active);
+        if (action === 'up') c.bringForward(active);
+        if (action === 'down') c.sendBackwards(active);
+        if (action === 'bottom') c.sendToBack(active);
+
+        bringGuidesTop(c);
+        c.requestRenderAll();
+        pushHistory();
+      };
+
+      // --- Export ---
+      const handleExport = async () => {
+        const c = fabricRef.current;
+        if (!c) return;
+        setIsExporting(true);
+
+        // Ocultar guías
+        c.getObjects().forEach(o => { if (o.excludeFromExport) o.visible = false; });
+        c.renderAll();
+
+        const zip = new JSZip();
+        const multiplier = 2; // calidad mejor (2160x2700 por slide)
+
+        try {
+          for (let i = 0; i < slides; i++) {
+            const data = c.toDataURL({
+              left: i * SLIDE_W,
+              top: 0,
+              width: SLIDE_W,
+              height: SLIDE_H,
+              format: 'png',
+              multiplier
+            });
+            zip.file(`slide-${i + 1}.png`, data.replace(/^data:image\/png;base64,/, ""), { base64: true });
+          }
+          const content = await zip.generateAsync({ type: "blob" });
+          saveAs(content, "carrusel-instagram.zip");
+        } catch (e) {
+          console.error(e);
+          alert("Error al exportar. Mira la consola para más detalle.");
+        } finally {
+          c.getObjects().forEach(o => { if (o.excludeFromExport) o.visible = true; });
+          c.renderAll();
+          setIsExporting(false);
+        }
+      };
+
+      const handlePickImage = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        urlsToRevokeRef.current.push(url);
+        addItem('image', url);
+        e.target.value = '';
+      };
+
+      // --- UI ---
+      return (
+        <div className="w-full h-full select-none">
+          {/* TOP BAR */}
+          <header className="fixed top-6 left-0 right-0 flex justify-center z-50 pointer-events-none">
+            <div className="glass-panel rounded-full px-2 py-2 flex items-center gap-4 pointer-events-auto">
+              <div className="flex items-center gap-2 pl-3 pr-2 border-r border-white/10">
+                <div className="w-4 h-4 bg-gradient-to-tr from-indigo-500 to-pink-500 rounded-full"></div>
+                <span className="text-white font-bold text-sm tracking-tight hidden sm:block">Panorama</span>
               </div>
-              <div>
-                  <label class="label">Formato</label>
-                  <select class="select" id="fmt" style="width:100%">
-                    <option value="jpeg" selected>JPG</option>
-                    <option value="png">PNG</option>
-                  </select>
-              </div>
-          </div>
-          
-          <div style="margin-bottom:12px">
-             <div style="display:flex; justify-content:space-between;">
-                 <label class="label">Calidad</label>
-                 <strong id="qVal" style="font-size:10px">0.95</strong>
-             </div>
-             <input id="q" type="range" min="0.80" max="1.00" step="0.01" value="0.95" style="width:100%">
-          </div>
 
-          <div style="display:flex; flex-direction:column; gap:6px">
-              <button class="btn primary" id="dlZip" style="height:38px; width:100%">
-                Descargar Todo (ZIP)
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-400 font-medium">SLIDES</span>
+                <select
+                  value={slides}
+                  onChange={(e) => setSlides(Number(e.target.value))}
+                  className="bg-zinc-800 text-white text-xs font-bold py-1 px-2 rounded cursor-pointer outline-none border border-transparent hover:border-zinc-600"
+                  title="Cambiar número de slides (se conserva tu diseño)"
+                >
+                  {[2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n} className="text-black">{n}</option>)}
+                </select>
+              </div>
+
+              <div className="hidden md:flex items-center gap-2 text-zinc-400 text-xs">
+                <span className="kbd">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Z</span>
+                <span className="kbd">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Y</span>
+                <span className="kbd">Space</span>
+                <span className="text-zinc-500">para mover</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button onClick={() => applyHistory(-1)} className="btn-icon" title="Deshacer">
+                  <i data-lucide="undo-2" className="w-5 h-5"></i>
+                </button>
+                <button onClick={() => applyHistory(+1)} className="btn-icon" title="Rehacer">
+                  <i data-lucide="redo-2" className="w-5 h-5"></i>
+                </button>
+              </div>
+
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="bg-white text-black px-4 py-1.5 rounded-full text-xs font-bold hover:bg-zinc-200 transition flex items-center gap-2"
+                title="Exporta un ZIP con PNGs en alta (x2)"
+              >
+                {isExporting ? <span className="animate-pulse">...</span> : <><i data-lucide="download" className="w-3 h-3"></i> <span>Guardar</span></>}
               </button>
-              
-              <div style="display:flex; gap:6px">
-                 <button class="btn" id="dlOne" style="flex:1">Esta foto</button>
-                 <button class="btn" id="exportCrop" title="Recorte exacto" style="width:36px; padding:0">✂</button>
+            </div>
+          </header>
+
+          {/* MAIN VIEWPORT */}
+          <main
+            ref={containerRef}
+            className={"viewport-container" + (isPanning ? " is-panning" : "")}
+            onWheel={handleWheel}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onContextMenu={onContextMenu}
+          >
+            <div
+              style={{
+                transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+                transformOrigin: '0 0',
+                width: totalW,
+                height: SLIDE_H,
+                position: 'absolute',
+                boxShadow: '0 0 150px rgba(0,0,0,0.5)'
+              }}
+            >
+              <canvas ref={canvasElRef} />
+            </div>
+
+            {/* mini HUD */}
+            <div className="absolute bottom-6 right-6 glass-panel rounded-2xl px-3 py-2 text-[11px] text-zinc-300 flex items-center gap-2 pointer-events-none">
+              <i data-lucide="search" className="w-4 h-4"></i>
+              <span>{Math.round(view.zoom * 100)}%</span>
+              <span className="text-zinc-500">·</span>
+              <span className="text-zinc-500">Arrastra (Space / botón derecho)</span>
+            </div>
+          </main>
+
+          {/* BOTTOM DOCK */}
+          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+            <div className="glass-panel p-2 rounded-2xl flex items-center gap-1 shadow-2xl pointer-events-auto">
+              <button onClick={() => addItem('text')} className="btn-icon group relative" title="Añadir texto">
+                <i data-lucide="type" className="w-6 h-6"></i>
+                <span className="absolute -top-10 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Texto</span>
+              </button>
+
+              <button onClick={() => addItem('rect')} className="btn-icon group relative" title="Añadir forma">
+                <i data-lucide="square" className="w-6 h-6"></i>
+                <span className="absolute -top-10 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Forma</span>
+              </button>
+
+              <div className="relative group" title="Añadir imagen">
+                <button className="btn-icon">
+                  <i data-lucide="image" className="w-6 h-6"></i>
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePickImage} className="absolute inset-0 opacity-0 cursor-pointer" />
+                <span className="absolute -top-10 left-0 bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none">Imagen</span>
               </div>
+
+              <div className="w-px h-6 bg-white/10 mx-2"></div>
+
+              <button onClick={() => centerView()} className="btn-icon group relative" title="Ajustar a pantalla (Ctrl/⌘+0)">
+                <i data-lucide="maximize" className="w-5 h-5"></i>
+              </button>
+
+              <button onClick={() => zoomBy(1/1.1)} className="btn-icon" title="Zoom - (Ctrl/⌘ -)" aria-label="Zoom -">
+                <i data-lucide="minus" className="w-5 h-5"></i>
+              </button>
+              <button onClick={() => zoomBy(1.1)} className="btn-icon" title="Zoom + (Ctrl/⌘ +)" aria-label="Zoom +">
+                <i data-lucide="plus" className="w-5 h-5"></i>
+              </button>
+            </div>
           </div>
-      </div>
-    </div>
-  </section>
-</main>
 
-<div class="stripWrap">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
-        <h3 style="font-size:11px; margin:0; color:var(--text-muted)">STORYBOARD</h3>
-    </div>
-    <div class="card" style="border-radius: var(--radius-lg); background:var(--surface-2)">
-        <div class="strip" id="strip"></div>
-    </div>
-</div>
+          {/* RIGHT PANEL */}
+          {selected && (
+            <div className="fixed top-24 right-6 w-64 glass-panel rounded-2xl p-4 flex flex-col gap-5 z-40 animate-in slide-in-from-right duration-300">
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                  {isText ? 'Texto' : 'Objeto'}
+                </span>
+                <button onClick={deleteItem} className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10 transition" title="Borrar (Supr)">
+                  <i data-lucide="trash-2" className="w-4 h-4"></i>
+                </button>
+              </div>
 
-<div class="modalOverlay" id="modalOverlay">
-  <div class="modal">
-    <div class="modalTop">
-      <b id="modalTitle">Ratio Global</b>
-      <button class="btn" id="modalClose" style="border:none; background:transparent; padding:0; width:24px;">✕</button>
-    </div>
-    <div class="modalBody">
-      <p style="color:var(--text-muted); margin-bottom:12px; font-size:13px">
-        Aplica un formato único a todas las imágenes.
-      </p>
-      <div style="display:flex; flex-direction:column; gap:6px">
-        <select class="select" id="modalRatio" style="width:100%">
-          <option value="1:1">1:1 (Cuadrado)</option>
-          <option value="4:5">4:5 (Retrato)</option>
-          <option value="9:16">9:16 (Story)</option>
-          <option value="3:2">3:2 (Horizontal)</option>
-          <option value="4:3">4:3 (Estándar)</option>
-          <option value="1.91:1">1.91:1 (Banner)</option>
-        </select>
-      </div>
-    </div>
-    <div class="modalActions">
-      <button class="btn" id="modalCancel">Cancelar</button>
-      <button class="btn primary" id="modalApply">Aplicar</button>
-    </div>
-  </div>
-</div>
+              {/* Color */}
+              <div>
+                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {COLORS.map(c => (
+                    <div
+                      key={c}
+                      onClick={() => updateSelected('fill', c)}
+                      className={'color-swatch ' + (selected?.fill === c ? 'active' : '')}
+                      style={{ backgroundColor: c }}
+                      title={c}
+                    />
+                  ))}
+                  <div className="relative w-[26px] h-[26px] rounded-full bg-gradient-to-tr from-green-400 to-blue-500 border-2 border-transparent hover:border-white transition cursor-pointer overflow-hidden">
+                    <input
+                      type="color"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => updateSelected('fill', e.target.value)}
+                      title="Color personalizado"
+                    />
+                  </div>
+                </div>
+                {!isText && (
+                  <div className="text-[11px] text-zinc-500 mt-2">
+                    Nota: las imágenes no tienen “fill”.
+                  </div>
+                )}
+              </div>
 
-<div class="modalOverlay" id="helpOverlay" style="z-index:210">
-  <div class="modal" style="width:600px; max-width:95%">
-    <div class="modalTop">
-      <b>📚 Instrucciones & API Guide</b>
-      <button class="btn" id="helpCloseBtn" style="border:none; background:transparent; padding:0; width:24px;">✕</button>
-    </div>
-    <div class="modalBody">
-      <div class="helpBlock">
-        <h4>1. Flujo de Trabajo</h4>
-        <ul>
-            <li><b>Sube imágenes:</b> Arrastra archivos o usa el botón "Añadir".</li>
-            <li><b>Edita:</b> Ajusta el recorte. Puedes usar un ratio libre o forzar el 4:5 (Instagram).</li>
-            <li><b>Ordena:</b> Arrastra las fotos en el "Storyboard" inferior para cambiar el orden.</li>
-            <li><b>Exporta:</b> Descarga un ZIP con todas las imágenes listas para publicar.</li>
-        </ul>
-      </div>
+              {/* Texto */}
+              {isText && (
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase block">Tipografía</label>
 
-      <div class="helpBlock">
-        <h4>2. ¿Qué es la Inteligencia Artificial (IA)?</h4>
-        <p>Esta herramienta se conecta con <b>OpenAI (GPT)</b> para corregir la ortografía y mejorar el "gancho" de tus textos automáticamente.</p>
-        <p>Para usarlo, necesitas una <b>API Key</b> (una contraseña especial).</p>
-      </div>
+                  <div className="flex bg-zinc-900/50 p-1 rounded-lg">
+                    {['left','center','right'].map(align => (
+                      <button
+                        key={align}
+                        onClick={() => updateSelected('textAlign', align)}
+                        className={
+                          'flex-1 p-1.5 rounded transition flex justify-center ' +
+                          (selected?.textAlign === align ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300')
+                        }
+                        title={'Alinear ' + align}
+                      >
+                        {align === 'left' && <i data-lucide="align-left" className="w-4 h-4"></i>}
+                        {align === 'center' && <i data-lucide="align-center" className="w-4 h-4"></i>}
+                        {align === 'right' && <i data-lucide="align-right" className="w-4 h-4"></i>}
+                      </button>
+                    ))}
+                  </div>
 
-      <div class="helpBlock">
-        <h4>3. ¿Cómo obtener tu API Key?</h4>
-        <ol>
-            <li>Ve a <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--primary)">platform.openai.com</a>.</li>
-            <li>Inicia sesión o crea una cuenta.</li>
-            <li><b>IMPORTANTE:</b> Debes añadir saldo (aprox $5 USD) en <i>Settings > Billing</i>. Las cuentas gratuitas antiguas ya no funcionan con API.</li>
-            <li>Ve a "API Keys" y pulsa <b>"Create new secret key"</b>.</li>
-            <li>Copia la clave que empieza por <code>sk-...</code></li>
-        </ol>
-      </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleStyle('bold')}
+                      className={'flex-1 p-2 rounded-lg text-xs font-bold border transition ' + (selected?.fontWeight === 'bold' ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500')}
+                      title="Negrita"
+                    >
+                      Bold
+                    </button>
+                    <button
+                      onClick={() => toggleStyle('italic')}
+                      className={'flex-1 p-2 rounded-lg text-xs italic border transition ' + (selected?.fontStyle === 'italic' ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500')}
+                      title="Cursiva"
+                    >
+                      Italic
+                    </button>
+                  </div>
+                </div>
+              )}
 
-      <div class="helpBlock">
-        <h4>4. Configuración Segura</h4>
-        <p>Pulsa el botón <b>⚙️ AI</b> en el menú superior y pega tu clave.</p>
-        <div class="codeBox">Tu clave se guarda en TU navegador (LocalStorage). Nosotros no tenemos servidores ni acceso a ella.</div>
-      </div>
-    </div>
-    <div class="modalActions">
-      <button class="btn primary" id="helpOkBtn">Entendido</button>
-    </div>
-  </div>
-</div>
+              {/* Capas */}
+              <div className="pt-2 border-t border-white/10">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Capas</label>
+                <div className="grid grid-cols-4 gap-1">
+                  <button onClick={() => layerAction('top')} className="p-2 bg-zinc-800 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white flex justify-center" title="Al frente">
+                    <i data-lucide="move-up" className="w-4 h-4"></i>
+                  </button>
+                  <button onClick={() => layerAction('up')} className="p-2 bg-zinc-800 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white flex justify-center" title="Subir">
+                    <i data-lucide="chevron-up" className="w-4 h-4"></i>
+                  </button>
+                  <button onClick={() => layerAction('down')} className="p-2 bg-zinc-800 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white flex justify-center" title="Bajar">
+                    <i data-lucide="chevron-down" className="w-4 h-4"></i>
+                  </button>
+                  <button onClick={() => layerAction('bottom')} className="p-2 bg-zinc-800 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white flex justify-center" title="Al fondo">
+                    <i data-lucide="move-down" className="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
 
-<script src="utils.js"></script>
-<script src="app.js"></script>
+              {/* Ayuda rápida */}
+              <div className="text-[11px] text-zinc-500 pt-2 border-t border-white/10 space-y-1">
+                <div><span className="kbd">Supr</span> borrar objeto</div>
+                <div><span className="kbd">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Z</span> deshacer</div>
+                <div><span className="kbd">{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+0</span> ajustar vista</div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+    // Quitar fallback si ha montado
+    setTimeout(() => { const el=document.getElementById('boot-fallback'); if(el) el.remove(); }, 50);
+  </script>
 </body>
 </html>
