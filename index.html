@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Panorama Studio Pro (Duplicar)</title>
+  <title>Panorama Studio Pro (Final)</title>
 
-  <!-- Fuentes -->
+  <!-- Fuentes (Actualizadas a 12 tipos) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;700&family=Oswald:wght@400;700&family=Dancing+Script:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Lato:wght@400;700&family=Open+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Cabin:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;700&family=Oswald:wght@400;700&family=Dancing+Script:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Lato:wght@400;700&family=Open+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
 
   <!-- React & Babel -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -155,6 +155,7 @@
     
     const COLORS = ['#000000', '#FFFFFF', '#F87171', '#FB923C', '#FBBF24', '#34D399', '#22D3EE', '#60A5FA', '#818CF8', '#A78BFA', '#E879F9', '#FB7185', '#e4e4e7', '#52525b'];
     
+    // --- LISTA DE 12 FUENTES ---
     const FONTS = [
       { name: 'Moderna (Inter)', family: 'Inter' },
       { name: 'Elegante (Playfair)', family: 'Playfair Display' },
@@ -164,6 +165,11 @@
       { name: 'Universal (Poppins)', family: 'Poppins' },
       { name: 'Robusta (Roboto Slab)', family: 'Roboto Slab' },
       { name: 'Código (Source Code Pro)', family: 'Source Code Pro' },
+      // Nuevas
+      { name: 'Corporativa (Lato)', family: 'Lato' },
+      { name: 'Legible (Open Sans)', family: 'Open Sans' },
+      { name: 'Editorial (Merriweather)', family: 'Merriweather' },
+      { name: 'Divertida (Pacifico)', family: 'Pacifico' },
     ];
 
     const clamp = (n, a, b) => Math.min(Math.max(n, a), b);
@@ -191,6 +197,7 @@
       const panelDragOffset = useRef({ x: 0, y: 0 });
 
       const [modalOpen, setModalOpen] = useState(false);
+      const [helpOpen, setHelpOpen] = useState(false); // Estado para Ayuda
       const [textState, setTextState] = useState({ 
         content: '', color: '#FFFFFF', fontSize: 120, 
         fontFamily: 'Inter', fontWeight: 'normal', fontStyle: 'normal', objRef: null 
@@ -335,7 +342,7 @@
         }
       }, [showHGuide, slides]);
 
-      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, previewOpen, isDraggingFile, showHGuide]);
+      useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, helpOpen, previewOpen, isDraggingFile, showHGuide]);
 
       const handleShapeFillInput = (e) => {
           const file = e.target.files[0];
@@ -397,7 +404,6 @@
           }
       };
 
-      // --- DUPLICAR OBJETO ---
       const duplicateItem = () => {
           const c = fabricRef.current;
           const act = c.getActiveObject();
@@ -421,7 +427,6 @@
                 c.add(cloned);
             }
             
-            // Si es ShapeFill, clonar también propiedades personalizadas
             if (act.isShapeFill) {
                 cloned.set({ isShapeFill: true, isEditingContent: false });
                 if(act.clipPath) {
@@ -437,6 +442,33 @@
             c.requestRenderAll();
             pushHistory();
           });
+      };
+
+      // --- TRANSFORMACIÓN DE PRECISION ---
+      const rotateObject = () => {
+        const c = fabricRef.current;
+        const act = c.getActiveObject();
+        if (!act) return;
+        const center = act.getCenterPoint();
+        const currentAngle = act.angle || 0;
+        act.set('angle', (currentAngle + 90) % 360);
+        act.setPositionByOrigin(center, 'center', 'center');
+        act.setCoords();
+        c.requestRenderAll();
+        pushHistory();
+      };
+
+      const flipObject = (direction) => {
+          const c = fabricRef.current;
+          const act = c.getActiveObject();
+          if (!act) return;
+          const center = act.getCenterPoint();
+          if (direction === 'X') act.set('flipX', !act.flipX);
+          if (direction === 'Y') act.set('flipY', !act.flipY);
+          act.setPositionByOrigin(center, 'center', 'center');
+          act.setCoords();
+          c.requestRenderAll();
+          pushHistory();
       };
 
       // --- LOGICA PANEL FLOTANTE ---
@@ -724,7 +756,7 @@
 
       useEffect(() => {
         const handleKey = (e) => {
-          if (modalOpen || previewOpen) return;
+          if (modalOpen || previewOpen || helpOpen) return;
           const c = fabricRef.current;
           const act = c?.getActiveObject();
           const mod = e.metaKey || e.ctrlKey;
@@ -733,7 +765,7 @@
 
           if (e.key === 'Backspace' || e.key === 'Delete') deleteItem();
           if (mod && e.key === 'z') { e.preventDefault(); e.shiftKey ? applyHistory(1) : applyHistory(-1); }
-          if (mod && e.key === 'd') { e.preventDefault(); duplicateItem(); } // Ctrl+D para duplicar
+          if (mod && e.key === 'd') { e.preventDefault(); duplicateItem(); } 
           if (e.code === 'Space') { if (e.type === 'keydown') setSpaceDown(true); else setSpaceDown(false); }
           if (mod && e.key === '0') { e.preventDefault(); centerView(); }
 
@@ -754,7 +786,7 @@
         };
         window.addEventListener('keydown', handleKey); window.addEventListener('keyup', handleKey);
         return () => { window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', handleKey); };
-      }, [modalOpen, previewOpen]);
+      }, [modalOpen, previewOpen, helpOpen]);
 
       const centerView = (w = totalW) => {
         if (!containerRef.current) return;
@@ -851,6 +883,10 @@
                     <button onClick={handleOpenPreview} className="btn-icon" title="Vista Previa Instagram">
                         <i data-lucide="eye" className="w-4 h-4"></i>
                     </button>
+                    {/* Botón Ayuda */}
+                    <button onClick={() => setHelpOpen(true)} className="btn-icon" title="Ayuda y Créditos">
+                        <i data-lucide="help-circle" className="w-4 h-4"></i>
+                    </button>
                 </div>
                 <div className="flex gap-1 border-l border-white/10 pl-2">
                     <button onClick={() => applyHistory(-1)} className="btn-icon"><i data-lucide="undo-2" className="w-4 h-4"></i></button>
@@ -901,7 +937,7 @@
             </div>
           </div>
 
-          {selected && !modalOpen && !previewOpen && (
+          {selected && !modalOpen && !previewOpen && !helpOpen && (
             <div 
                 className="fixed w-80 glass-panel rounded-2xl p-4 flex flex-col gap-4 z-50 shadow-2xl animate-[fadeIn_0.2s]"
                 style={{ left: panelPos.x, top: panelPos.y }}
@@ -950,6 +986,22 @@
                             <i data-lucide="align-center-vertical" className="w-4 h-4"></i>
                          </button>
                      </div>
+                </div>
+
+                {/* --- SECCIÓN DE TRANSFORMACIÓN MEJORADA --- */}
+                <div>
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Transformación</label>
+                    <div className="flex gap-2">
+                        <button onClick={() => rotateObject()} className="btn-icon flex-1 bg-zinc-800 hover:bg-zinc-700 text-xs" title="Rotar 90°">
+                            <i data-lucide="rotate-cw" className="w-4 h-4"></i>
+                        </button>
+                        <button onClick={() => flipObject('X')} className="btn-icon flex-1 bg-zinc-800 hover:bg-zinc-700 text-xs" title="Espejar Horizontal">
+                            <i data-lucide="flip-horizontal" className="w-4 h-4"></i>
+                        </button>
+                         <button onClick={() => flipObject('Y')} className="btn-icon flex-1 bg-zinc-800 hover:bg-zinc-700 text-xs" title="Espejar Vertical">
+                            <i data-lucide="flip-vertical" className="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
 
                 {selected.type === 'image' && !selected.isShapeFill && (
@@ -1065,6 +1117,29 @@
                     <div className="flex gap-3 pt-2 border-t border-white/10">
                         <button onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-zinc-400 hover:bg-white/5 transition">Cancelar</button>
                         <button onClick={handleSaveText} className="flex-1 py-3 rounded-xl font-bold bg-white text-black hover:bg-zinc-200 transition">{textState.objRef ? 'Actualizar Texto' : 'Añadir Texto'}</button>
+                    </div>
+                </div>
+            </div>
+          )}
+
+          {/* --- MODAL AYUDA Y CREDITOS --- */}
+          {helpOpen && (
+            <div className="modal-overlay" onClick={() => setHelpOpen(false)}>
+                <div className="glass-panel p-6 rounded-3xl w-[90%] max-w-sm flex flex-col gap-4 shadow-2xl animate-[fadeIn_0.2s]" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                        <h2 className="text-lg font-bold text-white">Ayuda Rápida</h2>
+                        <button onClick={() => setHelpOpen(false)} className="text-zinc-400 hover:text-white"><i data-lucide="x" className="w-5 h-5"></i></button>
+                    </div>
+                    <div className="flex flex-col gap-2 text-sm text-zinc-300">
+                        <div className="flex justify-between"><span>Moverse</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Espacio + Drag</span></div>
+                        <div className="flex justify-between"><span>Zoom</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Ctrl + Rueda</span></div>
+                        <div className="flex justify-between"><span>Duplicar</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Ctrl + D</span></div>
+                        <div className="flex justify-between"><span>Deshacer</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Ctrl + Z</span></div>
+                        <div className="flex justify-between"><span>Eliminar</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Supr</span></div>
+                    </div>
+                    <div className="mt-2 pt-4 border-t border-white/10 text-center">
+                        <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Diseñado y Programado por</p>
+                        <p className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Henry Gil</p>
                     </div>
                 </div>
             </div>
