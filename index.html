@@ -192,6 +192,8 @@ const panelDragOffset = useRef({ x: 0, y: 0 });
 
 const [modalOpen, setModalOpen] = useState(false);
 const [helpOpen, setHelpOpen] = useState(false);
+const [templatesOpen, setTemplatesOpen] = useState(false); // Estado para el menú de plantillas
+
 const [textState, setTextState] = useState({
 content: '', color: '#FFFFFF', fontSize: 120,
 fontFamily: 'Inter', fontWeight: 'normal', fontStyle: 'normal', objRef: null
@@ -294,8 +296,6 @@ const handleExportZip = async () => {
 
     // 2. Iterar y capturar cada slide
     for (let i = 0; i < slides; i++) {
-        // toDataURL permite recortar usando left/top/width/height
-        // Multiplier 1 para tamaño original (1080x1350)
         const dataURL = c.toDataURL({
             format: 'png',
             left: i * SLIDE_W,
@@ -305,8 +305,6 @@ const handleExportZip = async () => {
             multiplier: 1, 
             quality: 1
         });
-        
-        // Limpiar el header del dataURL para obtener solo el base64
         const base64Data = dataURL.replace(/^data:image\/png;base64,/, "");
         zip.file(`slide_${i + 1}.png`, base64Data, { base64: true });
     }
@@ -427,7 +425,7 @@ fabricRef.current.requestRenderAll();
 }
 }, [showHGuide, slides]);
 
-useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, helpOpen, previewOpen, isDraggingFile, showHGuide]);
+useEffect(() => { try { lucide.createIcons(); } catch(_) {} }, [selected, modalOpen, helpOpen, previewOpen, isDraggingFile, showHGuide, templatesOpen]);
 
 const handleShapeFillInput = (e) => {
 const file = e.target.files[0];
@@ -942,6 +940,55 @@ const files = e.dataTransfer.files;
 if (files && files.length > 0) { processImageFile(files[0], { x: e.clientX, y: e.clientY }); }
 };
 
+// --- FUNCIÓN PARA AÑADIR PLANTILLAS ---
+const addTemplate = (type) => {
+const c = fabricRef.current;
+if (!c) return;
+
+const MARGIN = 40; 
+const centerViewX = -view.x / view.zoom + (containerRef.current.clientWidth / view.zoom) / 2;
+const centerViewY = -view.y / view.zoom + (containerRef.current.clientHeight / view.zoom) / 2;
+
+const left = centerViewX - SLIDE_W / 2;
+const top = centerViewY - SLIDE_H / 2;
+
+const bgRect = new fabric.Rect({
+    left: left, top: top, width: SLIDE_W, height: SLIDE_H,
+    fill: '#ffffff', stroke: '#e4e4e7', strokeWidth: 1, selectable: true, name: 'template_bg'
+});
+
+const objectsToAdd = [bgRect];
+const placeholderColor = '#d4d4d8';
+
+if (type === '1-photo') {
+    const photoW = SLIDE_W - (MARGIN * 2);
+    const photoH = SLIDE_H - (MARGIN * 2);
+    const placeholder = new fabric.Rect({
+    left: left + MARGIN, top: top + MARGIN, width: photoW, height: photoH, fill: placeholderColor, selectable: true
+    });
+    objectsToAdd.push(placeholder);
+} else if (type === '2-photos') {
+    const availableHeight = SLIDE_H - (MARGIN * 3);
+    const photoH = availableHeight / 2;
+    const photoW = SLIDE_W - (MARGIN * 2);
+    const p1 = new fabric.Rect({
+    left: left + MARGIN, top: top + MARGIN, width: photoW, height: photoH, fill: placeholderColor, selectable: true
+    });
+    const p2 = new fabric.Rect({
+    left: left + MARGIN, top: top + MARGIN + photoH + MARGIN, width: photoW, height: photoH, fill: placeholderColor, selectable: true
+    });
+    objectsToAdd.push(p1, p2);
+}
+
+c.discardActiveObject(); 
+const selectionGroup = new fabric.ActiveSelection(objectsToAdd, { canvas: c });
+objectsToAdd.forEach(obj => c.add(obj));
+c.setActiveObject(selectionGroup);
+pushHistory();
+c.requestRenderAll();
+setTemplatesOpen(false);
+};
+
 return (
 <div className="w-full h-full select-none text-zinc-200">
 
@@ -1013,9 +1060,30 @@ onContextMenu={e => e.preventDefault()}
 </div>
 </main>
 
-<div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40">
+{/* BARRA DE HERRAMIENTAS INFERIOR */}
+<div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2">
+
+{templatesOpen && (
+<div className="glass-panel p-2 rounded-xl flex gap-2 mb-2 animate-in slide-in-from-bottom-2 fade-in duration-200">
+<button onClick={() => addTemplate('1-photo')} className="flex flex-col items-center gap-1 p-2 hover:bg-white/10 rounded-lg transition w-20">
+<div className="w-8 h-10 border border-zinc-500 bg-zinc-800 p-1 flex items-center justify-center"><div className="w-full h-full bg-zinc-500"></div></div>
+<span className="text-[10px] text-zinc-400 font-bold">Simple</span>
+</button>
+<button onClick={() => addTemplate('2-photos')} className="flex flex-col items-center gap-1 p-2 hover:bg-white/10 rounded-lg transition w-20">
+<div className="w-8 h-10 border border-zinc-500 bg-zinc-800 p-0.5 flex flex-col gap-0.5"><div className="w-full h-1/2 bg-zinc-500"></div><div className="w-full h-1/2 bg-zinc-500"></div></div>
+<span className="text-[10px] text-zinc-400 font-bold">Doble</span>
+</button>
+</div>
+)}
+
 <div className="glass-panel p-2 rounded-2xl flex items-center gap-2">
 <button onClick={openNewTextModal} className="btn-icon" title="Texto"><i data-lucide="type" className="w-6 h-6"></i></button>
+
+{/* BOTÓN PLANTILLAS */}
+<button onClick={() => setTemplatesOpen(!templatesOpen)} className={`btn-icon ${templatesOpen ? 'active' : ''}`} title="Plantillas / Marcos">
+<i data-lucide="layout-template" className="w-6 h-6"></i>
+</button>
+
 <button onClick={addRect} className="btn-icon" title="Forma"><i data-lucide="square" className="w-6 h-6"></i></button>
 <div className="relative">
 <button onClick={() => fileInputRef.current.click()} className="btn-icon" title="Imagen"><i data-lucide="image" className="w-6 h-6"></i></button>
