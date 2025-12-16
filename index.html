@@ -170,8 +170,6 @@ const canvasElRef = useRef(null);
 const containerRef = useRef(null);
 const fileInputRef = useRef(null);
 const shapeFileInputRef = useRef(null);
-
-// Referencia para el input de carga de proyectos
 const projectInputRef = useRef(null);
 
 const fabricRef = useRef(null);
@@ -179,6 +177,8 @@ const guidesCacheRef = useRef([]);
 const historyRef = useRef({ stack: [], index: -1, isApplying: false });
 
 const [slides, setSlides] = useState(3);
+const [lockedSlides, setLockedSlides] = useState(Array(3).fill(false)); // ESTADO DE CANDADOS
+
 const [showHGuide, setShowHGuide] = useState(false);
 const [selected, setSelected] = useState(null);
 const [selProps, setSelProps] = useState({ x: 0, y: 0, w: 0, h: 0 });
@@ -192,7 +192,7 @@ const panelDragOffset = useRef({ x: 0, y: 0 });
 
 const [modalOpen, setModalOpen] = useState(false);
 const [helpOpen, setHelpOpen] = useState(false);
-const [templatesOpen, setTemplatesOpen] = useState(false); // Estado para el menú de plantillas
+const [templatesOpen, setTemplatesOpen] = useState(false); 
 
 const [textState, setTextState] = useState({
 content: '', color: '#FFFFFF', fontSize: 120,
@@ -209,6 +209,20 @@ const panRef = useRef({ startX: 0, startY: 0 });
 const [spaceDown, setSpaceDown] = useState(false);
 
 const totalW = useMemo(() => slides * SLIDE_W, [slides]);
+
+// Actualizar array de candados si cambian los slides
+useEffect(() => {
+    setLockedSlides(prev => {
+        const newLocks = Array(slides).fill(false);
+        for(let i=0; i<Math.min(prev.length, slides); i++) newLocks[i] = prev[i];
+        return newLocks;
+    });
+}, [slides]);
+
+// Actualizar iconos cuando cambia el bloqueo
+useEffect(() => {
+    setTimeout(() => lucide.createIcons(), 50);
+}, [lockedSlides]);
 
 const serialize = (c) => c.toJSON(['isGuide', 'isHGuide', 'excludeFromExport', 'isShapeFill', 'isEditingContent', 'id']);
 
@@ -239,7 +253,6 @@ h.isApplying = false;
 });
 };
 
-// --- FUNCIONES DE GUARDAR / CARGAR PROYECTO (JSON) ---
 const handleSaveProject = () => {
 const c = fabricRef.current;
 if (!c) return;
@@ -282,19 +295,13 @@ reader.readAsText(file);
 e.target.value = '';
 };
 
-// --- EXPORTAR ZIP ---
 const handleExportZip = async () => {
     const c = fabricRef.current;
     if (!c) return;
-    
     setIsExporting(true);
     const zip = new JSZip();
-    
-    // 1. Ocultar guías
     guidesCacheRef.current.forEach(g => g.visible = false);
     c.renderAll();
-
-    // 2. Iterar y capturar cada slide
     for (let i = 0; i < slides; i++) {
         const dataURL = c.toDataURL({
             format: 'png',
@@ -308,12 +315,8 @@ const handleExportZip = async () => {
         const base64Data = dataURL.replace(/^data:image\/png;base64,/, "");
         zip.file(`slide_${i + 1}.png`, base64Data, { base64: true });
     }
-
-    // 3. Restaurar guías
     guidesCacheRef.current.forEach(g => g.visible = true);
     c.requestRenderAll();
-
-    // 4. Generar y descargar ZIP
     try {
         const content = await zip.generateAsync({ type: "blob" });
         saveAs(content, "panorama_slides.zip");
@@ -912,7 +915,7 @@ if (!file || !file.type.startsWith('image/')) return;
 
 const reader = new FileReader();
 reader.onload = (f) => {
-const url = f.target.result; // Esto es una Data URL
+const url = f.target.result; 
 fabric.Image.fromURL(url, (img) => {
 const scale = (Math.min(SLIDE_W, SLIDE_H) * 0.5) / Math.max(img.width, img.height);
 let left, top;
@@ -928,7 +931,7 @@ fabricRef.current.add(img); fabricRef.current.setActiveObject(img);
 pushHistory(); fabricRef.current.requestRenderAll();
 });
 };
-reader.readAsDataURL(file); // Leer como Base64
+reader.readAsDataURL(file); 
 };
 
 const handleInputImage = (e) => { processImageFile(e.target.files[0]); e.target.value = ''; };
@@ -940,7 +943,6 @@ const files = e.dataTransfer.files;
 if (files && files.length > 0) { processImageFile(files[0], { x: e.clientX, y: e.clientY }); }
 };
 
-// --- FUNCIÓN PARA AÑADIR PLANTILLAS ---
 const addTemplate = (type) => {
 const c = fabricRef.current;
 if (!c) return;
@@ -987,6 +989,39 @@ c.setActiveObject(selectionGroup);
 pushHistory();
 c.requestRenderAll();
 setTemplatesOpen(false);
+};
+
+// --- FUNCIÓN PARA ALTERNAR BLOQUEO DE SLIDE ---
+const toggleSlideLock = (index) => {
+    const c = fabricRef.current;
+    if (!c) return;
+    const newLocked = [...lockedSlides];
+    const isLocking = !newLocked[index];
+    newLocked[index] = isLocking;
+    setLockedSlides(newLocked);
+
+    c.discardActiveObject();
+
+    c.getObjects().forEach(obj => {
+        if (obj.isGuide) return;
+        const center = obj.getCenterPoint();
+        const objSlideIndex = Math.floor(center.x / SLIDE_W);
+
+        if (objSlideIndex === index) {
+            obj.set({
+                selectable: !isLocking,
+                evented: !isLocking,
+                lockMovementX: isLocking,
+                lockMovementY: isLocking,
+                lockRotation: isLocking,
+                lockScalingX: isLocking,
+                lockScalingY: isLocking,
+                hasControls: !isLocking,
+                hoverCursor: isLocking ? 'default' : 'move'
+            });
+        }
+    });
+    c.requestRenderAll();
 };
 
 return (
@@ -1057,6 +1092,34 @@ onContextMenu={e => e.preventDefault()}
 )}
 <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`, transformOrigin: '0 0', width: totalW, height: SLIDE_H, position: 'absolute', boxShadow: '0 0 50px rgba(0,0,0,0.5)' }}>
 <canvas ref={canvasElRef} />
+
+{/* BARRA DE CANDADOS POR SLIDE */}
+<div className="absolute top-full left-0 w-full flex mt-4 pointer-events-none">
+{lockedSlides.map((isLocked, i) => (
+<div 
+key={i} 
+style={{ width: SLIDE_W, height: 50, left: i * SLIDE_W, position: 'absolute' }} 
+className="flex justify-center items-start pointer-events-auto"
+>
+<button
+onClick={(e) => { e.stopPropagation(); toggleSlideLock(i); }}
+className={`
+flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border shadow-lg transition-all transform hover:scale-110
+${isLocked 
+    ? 'bg-red-500/90 border-red-400 text-white' 
+    : 'bg-zinc-800/80 border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-700'}
+`}
+title={isLocked ? "Desbloquear Slide" : "Bloquear Slide"}
+>
+<i data-lucide={isLocked ? "lock" : "unlock"} className="w-5 h-5"></i>
+<span className="text-sm font-bold uppercase tracking-wider">
+{isLocked ? 'Bloqueado' : `Slide ${i + 1}`}
+</span>
+</button>
+</div>
+))}
+</div>
+
 </div>
 </main>
 
