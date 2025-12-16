@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Panorama Studio Pro (Final)</title>
 
-  <!-- Fuentes (Actualizadas a 12 tipos) -->
+  <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;700&family=Oswald:wght@400;700&family=Dancing+Script:wght@400;700&family=Poppins:wght@400;700&family=Roboto+Slab:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Lato:wght@400;700&family=Open+Sans:wght@400;700&family=Merriweather:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
@@ -155,7 +155,6 @@
     
     const COLORS = ['#000000', '#FFFFFF', '#F87171', '#FB923C', '#FBBF24', '#34D399', '#22D3EE', '#60A5FA', '#818CF8', '#A78BFA', '#E879F9', '#FB7185', '#e4e4e7', '#52525b'];
     
-    // --- LISTA DE 12 FUENTES ---
     const FONTS = [
       { name: 'Moderna (Inter)', family: 'Inter' },
       { name: 'Elegante (Playfair)', family: 'Playfair Display' },
@@ -165,7 +164,6 @@
       { name: 'Universal (Poppins)', family: 'Poppins' },
       { name: 'Robusta (Roboto Slab)', family: 'Roboto Slab' },
       { name: 'Código (Source Code Pro)', family: 'Source Code Pro' },
-      // Nuevas
       { name: 'Corporativa (Lato)', family: 'Lato' },
       { name: 'Legible (Open Sans)', family: 'Open Sans' },
       { name: 'Editorial (Merriweather)', family: 'Merriweather' },
@@ -179,6 +177,10 @@
       const containerRef = useRef(null);
       const fileInputRef = useRef(null);
       const shapeFileInputRef = useRef(null);
+      
+      // Referencia para el input de carga de proyectos
+      const projectInputRef = useRef(null);
+      
       const fabricRef = useRef(null);
       const guidesCacheRef = useRef([]);
       const historyRef = useRef({ stack: [], index: -1, isApplying: false });
@@ -197,7 +199,7 @@
       const panelDragOffset = useRef({ x: 0, y: 0 });
 
       const [modalOpen, setModalOpen] = useState(false);
-      const [helpOpen, setHelpOpen] = useState(false); // Estado para Ayuda
+      const [helpOpen, setHelpOpen] = useState(false);
       const [textState, setTextState] = useState({ 
         content: '', color: '#FFFFFF', fontSize: 120, 
         fontFamily: 'Inter', fontWeight: 'normal', fontStyle: 'normal', objRef: null 
@@ -213,7 +215,7 @@
 
       const totalW = useMemo(() => slides * SLIDE_W, [slides]);
 
-      const serialize = (c) => c.toJSON(['isGuide', 'isHGuide', 'excludeFromExport', 'isShapeFill', 'isEditingContent']);
+      const serialize = (c) => c.toJSON(['isGuide', 'isHGuide', 'excludeFromExport', 'isShapeFill', 'isEditingContent', 'id']);
       
       const pushHistory = () => {
         const c = fabricRef.current;
@@ -241,6 +243,66 @@
           h.isApplying = false;
         });
       };
+
+      // --- FUNCIONES DE GUARDAR / CARGAR PROYECTO ---
+      const handleSaveProject = () => {
+          const c = fabricRef.current;
+          if (!c) return;
+
+          // Serializar el canvas incluyendo las propiedades personalizadas
+          // IMPORTANTE: Como estamos usando readAsDataURL para las imágenes, el src ya es base64 y se guarda aquí.
+          const canvasJson = serialize(c);
+          
+          const projectData = {
+              version: '1.0',
+              timestamp: Date.now(),
+              slides: slides,
+              canvas: canvasJson
+          };
+
+          const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
+          saveAs(blob, 'proyecto-panorama.json');
+      };
+
+      const handleLoadProject = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (f) => {
+              try {
+                  const data = JSON.parse(f.target.result);
+                  
+                  if (data.slides) setSlides(data.slides);
+
+                  const c = fabricRef.current;
+                  c.clear();
+                  c.backgroundColor = '#ffffff';
+
+                  // Cargar el JSON en Fabric
+                  c.loadFromJSON(data.canvas, () => {
+                      // Restaurar guías y renderizar
+                      drawGuides(c, data.slides || slides, showHGuide);
+                      bringGuidesTop(c);
+                      c.requestRenderAll();
+                      
+                      // Reiniciar historial
+                      historyRef.current = { stack: [], index: -1, isApplying: false };
+                      pushHistory();
+                      
+                      // Centrar vista
+                      setTimeout(() => centerView(data.slides ? data.slides * SLIDE_W : totalW), 100);
+                  });
+
+              } catch (err) {
+                  alert("Error al cargar el archivo de proyecto.");
+                  console.error(err);
+              }
+          };
+          reader.readAsText(file);
+          e.target.value = ''; // Reset input
+      };
+      // ----------------------------------------------
 
       useEffect(() => {
         const c = new fabric.Canvas(canvasElRef.current, {
@@ -347,49 +409,54 @@
       const handleShapeFillInput = (e) => {
           const file = e.target.files[0];
           if (!file) return;
-          const url = URL.createObjectURL(file);
-          const c = fabricRef.current;
-          const act = c.getActiveObject();
           
-          if (act) {
-              fabric.Image.fromURL(url, (img) => {
-                  const scaleX = act.getScaledWidth() / img.width;
-                  const scaleY = act.getScaledHeight() / img.height;
-                  const scale = Math.max(scaleX, scaleY);
-                  
-                  img.set({
-                      left: act.left,
-                      top: act.top,
-                      scaleX: scale,
-                      scaleY: scale,
-                      isShapeFill: true, 
-                      isEditingContent: false 
-                  });
-
-                  img.setPositionByOrigin(act.getCenterPoint(), 'center', 'center');
-
-                  act.clone((cloned) => {
-                      cloned.set({
-                          absolutePositioned: true, 
-                          fill: 'transparent',
-                          stroke: 'transparent',
-                          selectable: false,
-                          evented: false
+          // CAMBIO: Usar FileReader para Base64 (persistencia)
+          const reader = new FileReader();
+          reader.onload = (f) => {
+              const url = f.target.result; // Data URL
+              const c = fabricRef.current;
+              const act = c.getActiveObject();
+              
+              if (act) {
+                  fabric.Image.fromURL(url, (img) => {
+                      const scaleX = act.getScaledWidth() / img.width;
+                      const scaleY = act.getScaledHeight() / img.height;
+                      const scale = Math.max(scaleX, scaleY);
+                      
+                      img.set({
+                          left: act.left,
+                          top: act.top,
+                          scaleX: scale,
+                          scaleY: scale,
+                          isShapeFill: true, 
+                          isEditingContent: false 
                       });
-                      
-                      img.clipPath = cloned;
-                      
-                      const idx = c.getObjects().indexOf(act);
-                      c.insertAt(img, idx);
-                      c.remove(act);
-                      c.setActiveObject(img);
-                      c.requestRenderAll();
-                      pushHistory();
-                      
-                      e.target.value = '';
+    
+                      img.setPositionByOrigin(act.getCenterPoint(), 'center', 'center');
+    
+                      act.clone((cloned) => {
+                          cloned.set({
+                              absolutePositioned: true, 
+                              fill: 'transparent',
+                              stroke: 'transparent',
+                              selectable: false,
+                              evented: false
+                          });
+                          
+                          img.clipPath = cloned;
+                          
+                          const idx = c.getObjects().indexOf(act);
+                          c.insertAt(img, idx);
+                          c.remove(act);
+                          c.setActiveObject(img);
+                          c.requestRenderAll();
+                          pushHistory();
+                      });
                   });
-              });
-          }
+              }
+          };
+          reader.readAsDataURL(file);
+          e.target.value = '';
       };
 
       const toggleShapeEditMode = () => {
@@ -444,7 +511,6 @@
           });
       };
 
-      // --- TRANSFORMACIÓN DE PRECISION ---
       const rotateObject = () => {
         const c = fabricRef.current;
         const act = c.getActiveObject();
@@ -471,7 +537,6 @@
           pushHistory();
       };
 
-      // --- LOGICA PANEL FLOTANTE ---
       useEffect(() => {
         const handleWindowMouseMove = (e) => {
             if (isDraggingPanel) {
@@ -768,6 +833,9 @@
           if (mod && e.key === 'd') { e.preventDefault(); duplicateItem(); } 
           if (e.code === 'Space') { if (e.type === 'keydown') setSpaceDown(true); else setSpaceDown(false); }
           if (mod && e.key === '0') { e.preventDefault(); centerView(); }
+          
+          // Atajos Guardar/Cargar
+          if (mod && e.key === 's') { e.preventDefault(); handleSaveProject(); }
 
           if (act && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
               e.preventDefault();
@@ -786,7 +854,7 @@
         };
         window.addEventListener('keydown', handleKey); window.addEventListener('keyup', handleKey);
         return () => { window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', handleKey); };
-      }, [modalOpen, previewOpen, helpOpen]);
+      }, [modalOpen, previewOpen, helpOpen, slides]);
 
       const centerView = (w = totalW) => {
         if (!containerRef.current) return;
@@ -821,22 +889,29 @@
 
       const processImageFile = (file, dropCoords = null) => {
         if (!file || !file.type.startsWith('image/')) return;
-        const url = URL.createObjectURL(file);
-        fabric.Image.fromURL(url, (img) => {
-            const scale = (Math.min(SLIDE_W, SLIDE_H) * 0.5) / Math.max(img.width, img.height);
-            let left, top;
-            if (dropCoords) {
-                left = (dropCoords.x - view.x) / view.zoom - (img.width * scale) / 2;
-                top = (dropCoords.y - view.y) / view.zoom - (img.height * scale) / 2;
-            } else {
-                left = totalW / 2 - (img.width * scale) / 2;
-                top = SLIDE_H / 2 - (img.height * scale) / 2;
-            }
-            img.set({ left, top, scaleX: scale, scaleY: scale, uniformScaling: true });
-            fabricRef.current.add(img); fabricRef.current.setActiveObject(img); 
-            pushHistory(); fabricRef.current.requestRenderAll();
-        });
+        
+        // CAMBIO: Usar FileReader para obtener Base64 (persistencia)
+        const reader = new FileReader();
+        reader.onload = (f) => {
+            const url = f.target.result; // Esto es una Data URL
+            fabric.Image.fromURL(url, (img) => {
+                const scale = (Math.min(SLIDE_W, SLIDE_H) * 0.5) / Math.max(img.width, img.height);
+                let left, top;
+                if (dropCoords) {
+                    left = (dropCoords.x - view.x) / view.zoom - (img.width * scale) / 2;
+                    top = (dropCoords.y - view.y) / view.zoom - (img.height * scale) / 2;
+                } else {
+                    left = totalW / 2 - (img.width * scale) / 2;
+                    top = SLIDE_H / 2 - (img.height * scale) / 2;
+                }
+                img.set({ left, top, scaleX: scale, scaleY: scale, uniformScaling: true });
+                fabricRef.current.add(img); fabricRef.current.setActiveObject(img); 
+                pushHistory(); fabricRef.current.requestRenderAll();
+            });
+        };
+        reader.readAsDataURL(file); // Leer como Base64
       };
+
       const handleInputImage = (e) => { processImageFile(e.target.files[0]); e.target.value = ''; };
       const onDragOver = (e) => { e.preventDefault(); setIsDraggingFile(true); };
       const onDragLeave = (e) => { e.preventDefault(); setIsDraggingFile(false); };
@@ -870,6 +945,20 @@
                     <div className="w-3 h-3 rounded-full bg-gradient-to-r from-pink-500 to-violet-500"></div>
                     <span className="font-bold text-sm">Panorama</span>
                 </div>
+                
+                {/* BOTONES DE PROYECTO AÑADIDOS */}
+                <div className="flex gap-2">
+                    <button onClick={handleSaveProject} className="btn-icon" title="Guardar Proyecto (.json)">
+                        <i data-lucide="save" className="w-4 h-4"></i>
+                    </button>
+                    <button onClick={() => projectInputRef.current.click()} className="btn-icon" title="Cargar Proyecto (.json)">
+                        <i data-lucide="folder-open" className="w-4 h-4"></i>
+                    </button>
+                    <input ref={projectInputRef} type="file" accept=".json" onChange={handleLoadProject} className="hidden" />
+                </div>
+                <div className="w-px h-4 bg-white/10"></div>
+                {/* ------------------------------- */}
+
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-zinc-500">SLIDES</span>
                     <select value={slides} onChange={e => setSlides(Number(e.target.value))} className="bg-zinc-800 rounded px-2 py-1 text-xs font-bold outline-none cursor-pointer">
@@ -883,7 +972,6 @@
                     <button onClick={handleOpenPreview} className="btn-icon" title="Vista Previa Instagram">
                         <i data-lucide="eye" className="w-4 h-4"></i>
                     </button>
-                    {/* Botón Ayuda */}
                     <button onClick={() => setHelpOpen(true)} className="btn-icon" title="Ayuda y Créditos">
                         <i data-lucide="help-circle" className="w-4 h-4"></i>
                     </button>
@@ -988,7 +1076,6 @@
                      </div>
                 </div>
 
-                {/* --- SECCIÓN DE TRANSFORMACIÓN MEJORADA --- */}
                 <div>
                     <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Transformación</label>
                     <div className="flex gap-2">
@@ -1122,7 +1209,6 @@
             </div>
           )}
 
-          {/* --- MODAL AYUDA Y CREDITOS --- */}
           {helpOpen && (
             <div className="modal-overlay" onClick={() => setHelpOpen(false)}>
                 <div className="glass-panel p-6 rounded-3xl w-[90%] max-w-sm flex flex-col gap-4 shadow-2xl animate-[fadeIn_0.2s]" onClick={e => e.stopPropagation()}>
@@ -1131,6 +1217,7 @@
                         <button onClick={() => setHelpOpen(false)} className="text-zinc-400 hover:text-white"><i data-lucide="x" className="w-5 h-5"></i></button>
                     </div>
                     <div className="flex flex-col gap-2 text-sm text-zinc-300">
+                        <div className="flex justify-between"><span>Guardar Proyecto</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Ctrl + S</span></div>
                         <div className="flex justify-between"><span>Moverse</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Espacio + Drag</span></div>
                         <div className="flex justify-between"><span>Zoom</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Ctrl + Rueda</span></div>
                         <div className="flex justify-between"><span>Duplicar</span> <span className="text-white font-bold bg-zinc-800 px-2 rounded">Ctrl + D</span></div>
